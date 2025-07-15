@@ -2,7 +2,7 @@ import streamlit as st
 import requests
 
 # --- CONFIGURATION ---
-BACKEND_URL = "http://127.0.0.1:8000" # REPLACE WITH YOUR RENDER URL
+BACKEND_URL = "https://pravya-demo.onrender.com" # REPLACE WITH YOUR RENDER URL
 
 # --- API HELPERS ---
 def get_api_data(endpoint, payload=None):
