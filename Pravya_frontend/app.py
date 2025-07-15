@@ -3,7 +3,7 @@ import requests
 
 # --- CONFIGURATION ---
 # This is the address of our FastAPI backend.
-BACKEND_URL = "http://127.0.0.1:8000"
+BACKEND_URL = "https://pravya-demo.onrender.com"
 
 # --- API HELPER FUNCTIONS ---
 
