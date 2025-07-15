@@ -2,145 +2,143 @@ import streamlit as st
 import requests
 
 # --- CONFIGURATION ---
-# This is the address of our FastAPI backend.
+# IMPORTANT: Make sure this URL points to your deployed Render backend
+# BACKEND_URL = "http://127.0.0.1:8000" # Replace with your actual Render URL
 BACKEND_URL = "https://pravya-demo.onrender.com"
-
 # --- API HELPER FUNCTIONS ---
-
 def get_masteries_from_backend():
-    """Fetches the list of available masteries from the backend."""
     try:
         response = requests.get(f"{BACKEND_URL}/masteries")
-        response.raise_for_status()  # Raises an exception for bad status codes (4xx or 5xx)
+        response.raise_for_status()
         return response.json().get("masteries", [])
     except requests.exceptions.RequestException as e:
-        st.error(f"Error connecting to backend: {e}")
-        st.warning("Please make sure the FastAPI backend is running.")
+        st.error(f"Connection Error: Is the backend running at {BACKEND_URL}?", icon="🔌")
         return None
 
-def fetch_next_question_from_backend(mastery, index, context, power_ups):
-    """Fetches the next question wrapped in its story from the backend."""
+def fetch_next_question_from_backend(state):
     try:
-        payload = {
-            "mastery": mastery,
-            "current_question_index": index,
-            "previous_story_context": context,
-            "power_ups": power_ups
-        }
-        response = requests.post(f"{BACKEND_URL}/get-next-question", json=payload)
+        response = requests.post(f"{BACKEND_URL}/get-next-question", json=state)
         response.raise_for_status()
         return response.json()
     except requests.exceptions.RequestException as e:
-        st.error(f"Error fetching next question: {e}")
+        st.error(f"API Error: Could not fetch next question. {e}", icon="📡")
         return None
 
 # --- SESSION STATE INITIALIZATION ---
-# Using st.session_state to store variables that need to persist across reruns.
-
-if 'current_view' not in st.session_state:
-    st.session_state.current_view = 'selection'
-if 'selected_mastery' not in st.session_state:
-    st.session_state.selected_mastery = None
-if 'question_index' not in st.session_state:
-    st.session_state.question_index = 0
-if 'narrative_context' not in st.session_state:
-    st.session_state.narrative_context = None
-if 'power_ups' not in st.session_state:
-    st.session_state.power_ups = []
-if 'current_data' not in st.session_state:
-    st.session_state.current_data = None
-if 'test_complete' not in st.session_state:
-    st.session_state.test_complete = False
+def initialize_state():
+    if 'current_view' not in st.session_state:
+        st.session_state.current_view = 'selection'
+    if 'selected_mastery' not in st.session_state:
+        st.session_state.selected_mastery = None
+    if 'question_index' not in st.session_state:
+        st.session_state.question_index = 0
+    if 'narrative_context' not in st.session_state:
+        st.session_state.narrative_context = None
+    if 'power_ups' not in st.session_state:
+        st.session_state.power_ups = []
+    if 'current_data' not in st.session_state:
+        st.session_state.current_data = None
+    if 'test_complete' not in st.session_state:
+        st.session_state.test_complete = False
 
 # --- UI RENDERING FUNCTIONS ---
-
 def render_selection_screen():
-    """Displays the initial screen for the user to select their mastery."""
     st.title("Pravya: The IPL Challenge 🏏")
     st.markdown("Welcome, Analyst! The IPL season is about to begin, and your team needs your strategic genius. Your skills will decide whether we lift the trophy or go home empty-handed.")
-    st.markdown("Choose your primary area of expertise below. This will be your core strength throughout the season.")
+    st.markdown("#### Choose your primary area of expertise below.")
     
     masteries = get_masteries_from_backend()
     
     if masteries:
         options = ["-- Select your mastery --"] + masteries
-        selected = st.selectbox("Select Your Mastery:", options=options)
+        selected = st.selectbox("Select Your Mastery:", options=options, label_visibility="collapsed")
         
-        # Make the button clickable only if a valid mastery is chosen
-        if selected != "-- Select your mastery --" and st.button("Start Your Journey"):
+        if selected != "-- Select your mastery --" and st.button("Start Your Journey", type="primary"):
             st.session_state.selected_mastery = selected
             st.session_state.current_view = 'test'
             st.rerun()
 
 def render_test_screen():
-    """Displays the main test screen with the story and question."""
-    
-    # Fetch the very first question if we don't have any data yet
-    if st.session_state.current_data is None:
+    st.title("Pravya: The IPL Challenge 🏏")
+
+    with st.sidebar:
+        st.header("💡 Analyst's Toolkit")
+        st.markdown("**Your Earned Power-ups:**")
+        if not st.session_state.power_ups:
+            st.info("Answer correctly to gain a strategic edge!")
+        else:
+            for power in st.session_state.power_ups:
+                st.success(f"✅ {power}")
+        
+        if st.session_state.power_ups:
+            if st.button("Activate Power-up", disabled=True): # Future feature
+                st.toast("Power-up activated!", icon="⚡️")
+
+    # Initial data load
+    if st.session_state.current_data is None and st.session_state.selected_mastery:
         with st.spinner("The first challenge is loading..."):
-            st.session_state.current_data = fetch_next_question_from_backend(
-                st.session_state.selected_mastery,
-                st.session_state.question_index,
-                st.session_state.narrative_context,
-                st.session_state.power_ups
-            )
+            state_payload = {
+                "mastery": st.session_state.selected_mastery,
+                "current_question_index": 0,
+                "user_answer": None,
+                "previous_story_context": None,
+                "power_ups": []
+            }
+            st.session_state.current_data = fetch_next_question_from_backend(state_payload)
 
     if not st.session_state.current_data:
-        st.error("Could not load data from the backend. Please ensure it's running correctly.")
+        st.warning("Waiting for data...")
         return
 
-    # Check if the test is completed
+    # Check for test completion
     if st.session_state.current_data.get("status") == "completed":
         st.balloons()
         st.success("CHAMPIONS! 🏆")
         st.header("You've led the team to a glorious IPL victory!")
-        st.markdown(st.session_state.current_data.get("message", "Your brilliant strategies throughout the season were the key to our success. Well done!"))
-        st.session_state.test_complete = True
-        
         if st.button("Start a New Season"):
-            # Reset all state variables to go back to the beginning
-            st.session_state.current_view = 'selection'
-            st.session_state.selected_mastery = None
-            st.session_state.question_index = 0
-            st.session_state.narrative_context = None
-            st.session_state.power_ups = []
-            st.session_state.current_data = None
-            st.session_state.test_complete = False
+            for key in list(st.session_state.keys()):
+                del st.session_state[key] # Clear state completely
             st.rerun()
         return
 
-    # Display the story and user input elements
-    if st.session_state.current_data:
-        story_payload = st.session_state.current_data.get("story_payload", {})
-        
-        # Display the narrative from the LLM
-        st.markdown(story_payload.get("narrative_chapter", "The story could not be loaded."), unsafe_allow_html=True)
-        st.warning(f"**Your Task:** {story_payload.get('call_to_action', 'Provide your solution.')}")
-        
-        # NOTE: The raw question block is intentionally omitted for narrative immersion.
-        
-        st.text_area("Enter Your Solution/Analysis:", height=200, key="user_answer")
-        
-        # Handle the submission button
-        if st.button("Submit & Continue to Next Challenge", disabled=st.session_state.test_complete):
-            # Update state for the next question
-            st.session_state.question_index += 1
-            st.session_state.narrative_context = story_payload.get("narrative_chapter")
-            
-            # TODO: Implement logic to evaluate the answer and award power-ups
-            
-            # Fetch the next story/question from the backend
-            with st.spinner("The next situation is unfolding..."):
-                st.session_state.current_data = fetch_next_question_from_backend(
-                    st.session_state.selected_mastery,
-                    st.session_state.question_index,
-                    st.session_state.narrative_context,
-                    st.session_state.power_ups
-                )
+    # --- Display Narrative and Question ---
+    story_payload = st.session_state.current_data.get("story_payload", {})
+    
+    st.markdown(story_payload.get("narrative_chapter", "The story could not be loaded."), unsafe_allow_html=True)
+    st.warning(f"**Your Task:** {story_payload.get('call_to_action', 'Provide your solution.')}")
+
+    user_input = st.text_area("Enter Your Solution/Analysis:", height=150, key="user_answer_input")
+    
+    if st.button("Submit & Finalize Analysis 🚀", type="primary"):
+        with st.spinner("Sending your analysis to the dugout..."):
+            # Prepare state for the backend
+            state_payload = {
+                "mastery": st.session_state.selected_mastery,
+                "current_question_index": st.session_state.question_index + 1,
+                "user_answer": user_input,
+                "previous_story_context": story_payload.get("narrative_chapter"),
+                "power_ups": st.session_state.power_ups
+            }
+
+            # Fetch the next set of data
+            next_data = fetch_next_question_from_backend(state_payload)
+
+            if next_data:
+                # Update state for the next turn
+                st.session_state.question_index += 1
+                st.session_state.current_data = next_data
+
+                # Check for newly earned power-up from the payload
+                new_power_up = next_data.get("story_payload", {}).get("earned_power_up")
+                if new_power_up and new_power_up not in st.session_state.power_ups:
+                    st.session_state.power_ups.append(new_power_up)
+                    st.toast(f"Power-up Unlocked: {new_power_up}!", icon="🎉")
             
             st.rerun()
 
 # --- MAIN LOGIC (VIEW ROUTER) ---
+initialize_state()
+
 if st.session_state.current_view == 'selection':
     render_selection_screen()
 else:
