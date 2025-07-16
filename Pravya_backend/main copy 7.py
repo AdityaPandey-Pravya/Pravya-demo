@@ -42,11 +42,11 @@ except Exception as e:
     supabase = None
 
 # Initialize Gemini
-GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
-logger.info(f"Gemini API Key configured: {'Yes' if GOOGLE_API_KEY else 'No'}")
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+logger.info(f"Gemini API Key configured: {'Yes' if GEMINI_API_KEY else 'No'}")
 
 try:
-    genai.configure(api_key=GOOGLE_API_KEY)
+    genai.configure(api_key=GEMINI_API_KEY)
     model = genai.GenerativeModel('gemini-2.5-flash')
     logger.info("✅ Gemini AI client initialized successfully")
     
@@ -369,12 +369,10 @@ STORY REQUIREMENTS:
 2. The technical question must feel like a natural solution to the crisis
 3. Integrate team members naturally - make their dialogue feel authentic
 4. Adapt the original question terminology to fit the story (change generic examples to story-relevant ones)
-**For Mathematical quesiton, you can change the terminologies, but keep the numeric value same as the original question**
-**For example : You bought a book for $15, which was 75% of its original price. What was the original price?(original Question) to make it fit in story you can change book to petawatts of charge but keep the numeric value of 15 and 75%
 5. Build suspense about potential system infiltration by rogue AIs
 6. Keep narrative concise but engaging (max 200 words)
 7. End with the technical challenge that needs immediate solution
-** You should never ask the question in a direct way or at the end of your story narration, the question should be blended with the story narration, So that user have to read the story and find the question within it.
+
 TONE: Professional but urgent, with underlying tension about AI threats
 
 Generate the narrative that leads naturally to the technical question:
@@ -384,8 +382,9 @@ Generate the narrative that leads naturally to the technical question:
         logger.info("🤖 Calling Gemini API for narrative generation...")
         if not model:
             logger.error("❌ Gemini model not initialized")
-    except Exception as e:
+    except Exception(e):
         print(e)
+        
     def generate_boss_battle_narrative(question_data: Dict[str, Any], game_state: GameState) -> str:
         """Generate epic boss battle narrative"""
 
@@ -415,7 +414,7 @@ BOSS BATTLE SCENARIO:
 - The fate of NeoTech Corp and the digital realm hangs in the balance
 
 STORY REQUIREMENTS:
-1. Create an epic, cinematic opening to the boss battle (max 30 words)
+1. Create an epic, cinematic opening to the boss battle (max 250 words)
 2. Show the boss AI taunting the player with corrupted code/logic
 3. Build maximum tension - this is the final showdown
 4. Include dramatic team support and rallying 
@@ -485,7 +484,6 @@ STORY REQUIREMENTS:
 2. The technical question must feel like a natural solution to the crisis
 3. Integrate team members naturally - make their dialogue feel authentic
 4. Adapt the original question terminology to fit the story (change generic examples to story-relevant ones)
-   **For Mathematical quesiton, you can change the terminologies, but keep the numeric value same as the original question**
 5. Build suspense about potential system infiltration by rogue AIs
 6. Keep narrative concise but engaging (max 200 words)
 7. End with the technical challenge that needs immediate solution
@@ -640,67 +638,44 @@ def analyze_code_quality(user_answer: str, question_data: Dict[str, Any]) -> boo
 def update_game_state_after_answer(game_state: GameState, is_correct: bool, score: float) -> GameState:
     """Update game state based on answer evaluation"""
     
-    try:
-        # Create a new GameState object with updated values
-        updated_state = GameState(
-            player_level=game_state.player_level,
-            experience_points=game_state.experience_points,
-            current_question_index=game_state.current_question_index,
-            performance_score=game_state.performance_score,
-            streak_count=game_state.streak_count,
-            badges=list(game_state.badges),  # Create new list
-            team_trust=dict(game_state.team_trust),  # Create new dict
-            story_path=game_state.story_path,
-            boss_battle_ready=game_state.boss_battle_ready,
-            session_questions_answered=game_state.session_questions_answered,
-            selected_mastery=game_state.selected_mastery
-        )
-        
-        # Update experience and streak
-        if is_correct:
-            updated_state.experience_points += int(score)
-            updated_state.streak_count += 1
-            # Boost team trust slightly
-            for char in updated_state.team_trust:
-                updated_state.team_trust[char] = min(100.0, updated_state.team_trust[char] + 2.0)
-        else:
-            updated_state.streak_count = 0
-            # Decrease team trust slightly
-            for char in updated_state.team_trust:
-                updated_state.team_trust[char] = max(0.0, updated_state.team_trust[char] - 5.0)
-        
-        # Update performance score (rolling average)
-        updated_state.performance_score = (updated_state.performance_score * 0.8) + (score * 0.2)
-        
-        # Level progression
-        xp_for_next_level = updated_state.player_level * 200
-        if updated_state.experience_points >= xp_for_next_level:
-            updated_state.player_level += 1
-            updated_state.boss_battle_ready = True
-        
-        # Badge system
-        new_badges = []
-        if updated_state.streak_count == 3 and "code_warrior" not in updated_state.badges:
-            new_badges.append("code_warrior")
-        if updated_state.streak_count == 5 and "debugging_master" not in updated_state.badges:
-            new_badges.append("debugging_master")
-        if score >= 95 and "perfectionist" not in updated_state.badges:
-            new_badges.append("perfectionist")
-        if updated_state.performance_score >= 90 and "elite_developer" not in updated_state.badges:
-            new_badges.append("elite_developer")
-        
-        updated_state.badges.extend(new_badges)
-        updated_state.current_question_index += 1
-        updated_state.session_questions_answered += 1
-        
-        logger.info(f"🎮 Game state updated: XP={updated_state.experience_points}, Level={updated_state.player_level}, Performance={updated_state.performance_score:.1f}%")
-        
-        return updated_state
-        
-    except Exception as e:
-        logger.error(f"❌ Error updating game state: {str(e)}")
-        # Return original state if update fails
-        return game_state
+    # Update experience and streak
+    if is_correct:
+        game_state.experience_points += int(score)
+        game_state.streak_count += 1
+        # Boost team trust slightly
+        for char in game_state.team_trust:
+            game_state.team_trust[char] = min(100, game_state.team_trust[char] + 2)
+    else:
+        game_state.streak_count = 0
+        # Decrease team trust slightly
+        for char in game_state.team_trust:
+            game_state.team_trust[char] = max(0, game_state.team_trust[char] - 5)
+    
+    # Update performance score (rolling average)
+    game_state.performance_score = (game_state.performance_score * 0.8) + (score * 0.2)
+    
+    # Level progression
+    xp_for_next_level = game_state.player_level * 200
+    if game_state.experience_points >= xp_for_next_level:
+        game_state.player_level += 1
+        game_state.boss_battle_ready = True
+    
+    # Badge system
+    new_badges = []
+    if game_state.streak_count == 3 and "code_warrior" not in game_state.badges:
+        new_badges.append("code_warrior")
+    if game_state.streak_count == 5 and "debugging_master" not in game_state.badges:
+        new_badges.append("debugging_master")
+    if score >= 95 and "perfectionist" not in game_state.badges:
+        new_badges.append("perfectionist")
+    if game_state.performance_score >= 90 and "elite_developer" not in game_state.badges:
+        new_badges.append("elite_developer")
+    
+    game_state.badges.extend(new_badges)
+    game_state.current_question_index += 1
+    game_state.session_questions_answered += 1
+    
+    return game_state
 
 @app.get("/")
 async def root():
@@ -768,18 +743,13 @@ async def submit_answer(submission: AnswerSubmission):
     """Evaluate user's answer and update game state"""
     
     try:
-        question = None
-        # Check if the question is a boss battle question
-        if "boss" in submission.question_id:
-            # If so, generate the question data locally instead of calling the DB
-            logger.info(f"🐲 Handling boss battle question: {submission.question_id}")
-            question = generate_boss_battle_question(submission.game_state.selected_mastery)
-        else:
-            # Otherwise, fetch the question from Supabase
-            question_data = supabase.table("questions").select("*").eq("id", submission.question_id).execute()
-            if not question_data.data:
-                raise HTTPException(status_code=404, detail=f"Question with ID '{submission.question_id}' not found")
-            question = question_data.data[0]
+        # Get question data for evaluation
+        question_data = supabase.table("questions").select("*").eq("id", submission.question_id).execute()
+        
+        if not question_data.data:
+            raise HTTPException(status_code=404, detail="Question not found")
+        
+        question = question_data.data[0]
         
         # Evaluate answer using LLM
         is_correct, score, feedback = evaluate_user_answer(
@@ -814,26 +784,17 @@ async def submit_answer(submission: AnswerSubmission):
         session_complete = updated_game_state.session_questions_answered >= 5
         
         response = EvaluationResponse(
-            is_correct=bool(is_correct),
-            score=float(score),
-            feedback=str(feedback),
-            story_continuation=str(story_continuation),
+            is_correct=is_correct,
+            score=score,
+            feedback=feedback,
+            story_continuation=story_continuation,
             updated_game_state=updated_game_state,
             achievement_unlocked=achievement_unlocked,
-            session_complete=bool(session_complete)
+            session_complete=session_complete
         )
+    except Exception(e):
+        print(e)
         
-        return response
-
-    # Improved exception handling
-    except HTTPException as http_exc:
-        # Re-raise HTTPException so FastAPI can handle it
-        raise http_exc
-    except Exception as e:
-        logger.error(f"❌ An unexpected error occurred in submit_answer: {str(e)}")
-        # Return a proper HTTP 500 error instead of letting the function crash
-        raise HTTPException(status_code=500, detail=f"An internal error occurred: {str(e)}")
-
 def generate_team_hints(question_data: Dict[str, Any], game_state: GameState) -> List[Dict[str, Any]]:
     """Generate hints from all three teammates - one will be deliberately wrong"""
     

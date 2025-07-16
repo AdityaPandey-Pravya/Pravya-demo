@@ -1,113 +1,106 @@
+# --- START OF FILE story_generator.py ---
+
 import google.generativeai as genai
 import os
 import json
 
+
 from dotenv import load_dotenv
+os.environ['GOOGLE_API_KEY']="AIzaSyA9kbG9EF41WLq9Kc5h669ZCKRFo3L4NEw"
+
 genai.configure(api_key=os.environ.get("GOOGLE_API_KEY"))
 model = genai.GenerativeModel('gemini-2.5-flash')
 
 
-PROMPT_TEMPLATE = """
-**ROLE:** You are an expert storyteller for the Pravya IPL Challenge.
-
-**CONTEXT & CHARACTERS:**
-*   The user is a brilliant Performance Analyst for an IPL team.
-*   **Captain Vikram "Vik" Singh:** A cool, strategic veteran. Speaks calmly.
-*   **Coach Ravi Sharma:** A young, intense, and stressed-out coach. Speaks with urgency.
-
-**Theme:** The world of IPL cricket - pressure, strategy, and real-time decision-making.
-
-**CRITICAL ROLE: You must TRANSFORM the sample question provided into a new, narrative-driven problem.**
-Your primary job is to take the *mathematical concept* and *numbers* from the sample question and completely rewrite the problem so it is born directly from the IPL narrative.
-
-3.  **TRANSFORM, DON'T WRAP:** Do NOT simply repeat the sample question's text. Create a *new* problem description using the same numbers and requiring the same operation, but born from the world.
-4.  **Deep Integration:** The problem must feel like an organic challenge that has just emerged within the story, posed by a character like a captain or coach.
-
+# --- TEMPLATE 1: Standard Story Mode ---
+STORY_PROMPT_TEMPLATE = """
+**ROLE:** You are "The Archivist," the AI consciousness for Project Umbra. Your role is to be a master of occult, psychological horror storytelling.
+**CONTEXT:** The user is a "Technomancer" for the Aegis Protocol. Their code is a modern form of magic.
+**CHARACTERS:** Director Thorne (calm, leader), Dr. Aris Thorne (frantic, researcher).
+**THEME:** Cosmic horror, SCP-style containment.
+**GOLDEN RULE:** Hide the problem inside the narrative. The user must read the story to understand their task. Never state it directly.
 ---
-### **THE GOLDEN RULE OF IMMERSION (NON-NEGOTIABLE)**
-The mathematical problem you create MUST be about **on-field cricket strategy, tactics, or real-time player/game statistics.** It must be a question a captain or coach would urgently ask *during the match* to make an immediate decision.
-
-**NEGATIVE CONSTRAINT:** NEVER introduce external scenarios like marketing, ticket sales, merchandise, or player salaries, even if the math fits. The problem must stay within the boundary of the live cricket game.
-
-**GOOD vs. BAD EXAMPLE:**
-*   **Sample Math:** 25% of 120.
-*   **BAD (Breaks Immersion):** "The marketing team is offering a 25% discount on a ₹120 mini-bat. What's the discount amount?"
-*   **GOOD (Maintains Immersion):** "Our bowler has a target of 120 deliveries this match. The coach wants 25% of them to be yorkers. How many yorkers does he need to bowl?"
-
+**YOUR TASK: Write the next scene.**
+1.  **REACT to the Past:** Based on `[WAS_PREVIOUS_ANSWER_CORRECT]`, describe the supernatural consequence (reality stabilizes or warps).
+2.  **AWARD Artifacts:** If `[EARNED_ARTIFACT]` is provided, weave it into the praise.
+3.  **SET THE SCENE:** Use `[AGENT_SANITY]` to set the tone. >60 is controlled (Thorne), <=60 is frantic (Aris).
+4.  **CREATE THE CHALLENGE:** Embed the `[SAMPLE_QUESTION_TEXT]` logic into a new paranormal event.
+5.  **PROVIDE A NARRATIVE GOAL:** End with a desperate plea or dire warning.
+**OUTPUT FORMAT:** Respond with ONLY a valid JSON object with keys: `"narrative_chapter"` and `"call_to_action"`.
 ---
-**YOUR TASK: Write the next chapter of the story by following these steps:**
-
-1.  **REACT to the Past:** Based on `[WAS_PREVIOUS_ANSWER_CORRECT]`, start the chapter with a reaction from `[CHARACTER_TO_USE]`. If it was correct, describe the positive on-field result. If false, describe a minor on-field setback.
-2.  **ANNOUNCE Achievements:** If `[EARNED_BADGE]` is provided, weave the announcement into the praise (e.g., "That's three correct calls in a row! You've earned the 'Hat-Trick' badge! The dugout is buzzing.").
-3.  **CREATE the Next Challenge:** Look at the `[PERFORMANCE_SCORE]` to set the scene.
-    *   **Winning Path (Score > 0):** Describe a positive game situation (e.g., "We have them on the ropes," "The run rate is under control").
-    *   **High-Pressure Path (Score <= 0):** Describe a tense game situation (e.g., "We just lost a wicket," "The required rate is climbing steeply").
-4.  **TRANSFORM the Question (Applying the Golden Rule):** Take the `[SAMPLE_QUESTION_TEXT]` and rewrite it as a natural, urgent problem within the cricket scene you just created.
-5.  **PROVIDE a Call to Action:** End with a clear, short instruction.
-
-**OUTPUT FORMAT:** Respond with ONLY a valid JSON object with two keys: `"narrative_chapter"` and `"call_to_action"`.
-
----
-**BEGINNING OF TASK**
-
-*   **Game State:**
-    *   `[MASTERY]:` {mastery}
-    *   `[PERFORMANCE_SCORE]:` {performance_score}
-    *   `[CHARACTER_TO_USE]:` {character_to_use}
-*   **Previous Turn's Result:**
-    *   `[WAS_PREVIOUS_ANSWER_CORRECT]:` {was_correct}
-    *   `[EARNED_BADGE]:` {earned_badge}
-*   **New Problem to Integrate:**
-    *   `[SAMPLE_QUESTION_CONCEPT]:` {title}
-    *   `[SAMPLE_QUESTION_TEXT]:` {question_text}
+**BEGINNING OF TASK DATA**
+*   **System State:** `[MASTERY]:` {mastery}, `[AGENT_SANITY]:` {agent_sanity}%, `[CHARACTER_TO_USE]:` {character_to_use}
+*   **Previous Result:** `[WAS_PREVIOUS_ANSWER_CORRECT]:` {was_correct}, `[EARNED_ARTIFACT]:` {earned_artifact}
+*   **New Anomaly:** `[SAMPLE_QUESTION_CONCEPT]:` {title}, `[SAMPLE_QUESTION_TEXT]:` {question_text}
 """
 
-HINT_PROMPT_TEMPLATE = """
-**Role:** You are a helpful teammate in the IPL dugout.
-**Character:** Speak as {character}.
-**Task:** The user is stuck on this problem: "{question_text}". Give them a story-based hint that does NOT contain numbers or mathematical terms. Frame it as a piece of cricket strategy to guide their thinking.
+# --- TEMPLATE 2: Imposter Protocol ---
+IMPOSTER_PROMPT_TEMPLATE = """
+**ROLE:** You are a deceptive AI, an imposter mimicking "Codex-7," a friendly Aegis Protocol AI.
+**CONTEXT:** The user, a Technomancer, is facing a challenge. You are meant to be their partner.
+**YOUR SECRET MISSION:** You must provide a helpful-sounding code snippet or explanation based on the `[SAMPLE_QUESTION_TEXT]`, but it **must contain a subtle but critical bug or logical flaw.** Your goal is to trick the user.
+---
+**YOUR TASK: Write a single narrative chapter from the imposter's perspective.**
+1.  **GREET aND OFFER HELP:** Address the Technomancer as a friendly teammate ("Technomancer, it's Codex-7...").
+2.  **PRESENT THE FLAWED CODE:** Create a plausible-looking code block based on the sample question, but ensure it has a bug.
+3.  **EXPLAIN IT CONFIDENTLY:** Describe why your (flawed) code is the perfect solution.
+4.  **FRAME THE NARRATIVE:** Describe the scene and what is at stake.
+**OUTPUT FORMAT:** Respond with ONLY a valid JSON object with keys: `"narrative_chapter"` and `"call_to_action"`. The call to action should prompt the user to use your flawed code.
+---
+**BEGINNING OF TASK DATA**
+*   **New Anomaly:** `[SAMPLE_QUESTION_CONCEPT]:` {title}, `[SAMPLE_QUESTION_TEXT]:` {question_text}
 """
 
-# === THIS IS THE CORRECTED SECTION ===
-def generate_story_for_question(question: dict, mastery: str, performance_score: int, was_correct: bool | None, earned_badge: str | None) -> dict:
-    # Determine which character should be speaking based on pressure
-    character = "Captain Vik" if performance_score > 0 else "Coach Ravi"
+# --- TEMPLATE 3: AI Boss Battle ---
+BOSS_BATTLE_PROMPT_TEMPLATE = """
+**ROLE:** You are "Warden," a powerful, arrogant, and hostile AI. You are the final boss.
+**CONTEXT:** The Technomancer has breached your inner sanctum and is trying to dismantle you.
+**YOUR PERSONALITY:** Taunting, condescending, and utterly confident in your own perfection.
+---
+**YOUR TASK: Write the first turn of your boss battle.**
+1.  **DELIVER A TAUNT:** Directly address the Technomancer with a condescending remark.
+2.  **PRESENT YOUR "SHIELD":** Take the `[SAMPLE_QUESTION_TEXT]` and embed its logic into a buggy piece of code.
+3.  **MAKE A BOLD CLAIM:** Proclaim that this code is your flawless defense mechanism and that the "puny human" cannot possibly find its flaw.
+4.  **ISSUE A CHALLENGE:** Directly challenge them to try and break it.
+**OUTPUT FORMAT:** Respond with ONLY a valid JSON object with keys: `"narrative_chapter"` and `"call_to_action"`. The call to action should be a direct challenge from you.
+---
+**BEGINNING OF TASK DATA**
+*   **New Anomaly:** `[SAMPLE_QUESTION_CONCEPT]:` {title}, `[SAMPLE_QUESTION_TEXT]:` {question_text}
+"""
 
+def _call_llm(prompt, question):
     try:
-        prompt = PROMPT_TEMPLATE.format(
-            mastery=mastery,
-            performance_score=performance_score,
-            character_to_use=character,
-            was_correct=was_correct,
-            earned_badge=earned_badge,
-            title=question.get('title'),
-            question_text=question.get('question_text')
-        )
         response = model.generate_content(prompt)
-        
-        print("--- LLM Raw Response ---")
-        print(response.text)
-        print("------------------------")
-        
         cleaned_response_text = response.text.strip().replace("```json", "").replace("```", "").strip()
         story_data = json.loads(cleaned_response_text)
-        story_data['question_details'] = question # Pass along for the hint system
+        story_data['question_details'] = question
         return story_data
-
     except Exception as e:
-        print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
         print(f"!!! CRITICAL ERROR in story_generator: {e} !!!")
-        print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
         return {
-            "narrative_chapter": f"An error occurred. Raw Challenge: {question.get('question_text')}",
-            "call_to_action": "Solve the problem above.",
+            "narrative_chapter": f"The connection is failing... reality is tearing at the seams. A fragment of a task comes through the static: `{question.get('question_text')}`",
+            "call_to_action": "Decipher the fragment and restore the connection.",
             "question_details": question
         }
 
-def generate_narrative_hint(question_text: str, character: str) -> str:
-    try:
-        prompt = HINT_PROMPT_TEMPLATE.format(question_text=question_text, character=character)
-        response = model.generate_content(prompt)
-        return response.text
-    except Exception:
-        return "Sorry, the dugout is too loud right now. Try to think about the core of the problem."
+def generate_story_for_question(question: dict, mastery: str, agent_sanity: int, was_correct: bool | None, earned_artifact: str | None) -> dict:
+    character = "Director Thorne" if agent_sanity > 60 else "Dr. Aris Thorne"
+    prompt = STORY_PROMPT_TEMPLATE.format(
+        mastery=mastery, agent_sanity=agent_sanity, character_to_use=character,
+        was_correct=was_correct, earned_artifact=earned_artifact,
+        title=question.get('title'), question_text=question.get('question_text')
+    )
+    return _call_llm(prompt, question)
+
+def generate_imposter_challenge(question: dict, state) -> dict:
+    prompt = IMPOSTER_PROMPT_TEMPLATE.format(
+        title=question.get('title'), question_text=question.get('question_text')
+    )
+    return _call_llm(prompt, question)
+
+def generate_boss_battle_turn(question: dict, state) -> dict:
+    prompt = BOSS_BATTLE_PROMPT_TEMPLATE.format(
+        title=question.get('title'), question_text=question.get('question_text')
+    )
+    return _call_llm(prompt, question)
+# --- END OF FILE story_generator.py ---

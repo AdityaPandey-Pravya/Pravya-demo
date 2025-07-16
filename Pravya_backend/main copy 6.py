@@ -42,11 +42,11 @@ except Exception as e:
     supabase = None
 
 # Initialize Gemini
-GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
-logger.info(f"Gemini API Key configured: {'Yes' if GOOGLE_API_KEY else 'No'}")
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+logger.info(f"Gemini API Key configured: {'Yes' if GEMINI_API_KEY else 'No'}")
 
 try:
-    genai.configure(api_key=GOOGLE_API_KEY)
+    genai.configure(api_key=GEMINI_API_KEY)
     model = genai.GenerativeModel('gemini-2.5-flash')
     logger.info("✅ Gemini AI client initialized successfully")
     
@@ -87,24 +87,6 @@ class StoryResponse(BaseModel):
     is_boss_battle: bool = False
     urgency_level: str = "medium"
     time_limit: Optional[int] = None
-
-class HintRequest(BaseModel):
-    game_state: GameState
-    question_id: str
-
-class HintResponse(BaseModel):
-    hints: List[Dict[str, Any]]  # List of hints from each teammate
-    updated_game_state: GameState
-
-class TrustDecision(BaseModel):
-    game_state: GameState
-    question_id: str
-    trusted_teammate: str  # Which teammate's advice they trust
-    
-class TrustDecisionResponse(BaseModel):
-    is_correct_trust: bool
-    consequences: str
-    updated_game_state: GameState
 
 class EvaluationResponse(BaseModel):
     is_correct: bool
@@ -147,10 +129,6 @@ def get_question_from_db(difficulty_level: str, mastery: str) -> Dict[str, Any]:
     """Fetch question from Supabase based on difficulty and mastery"""
     logger.info(f"🔍 Fetching question: difficulty={difficulty_level}, mastery={mastery}")
     
-    # Handle boss battles
-    if difficulty_level == "boss":
-        return generate_boss_battle_question(mastery)
-    
     try:
         if not supabase:
             logger.error("❌ Supabase client not initialized")
@@ -179,54 +157,16 @@ def get_question_from_db(difficulty_level: str, mastery: str) -> Dict[str, Any]:
         logger.error(f"❌ Database error: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
 
-def generate_boss_battle_question(mastery: str) -> Dict[str, Any]:
-    """Generate a boss battle question for the final challenge"""
-    
-    boss_questions = {
-        "python": {
-            "id": "boss-python-1",
-            "mastery": "python",
-            "difficulty_level": "boss",
-            "difficulty_rating": 95,
-            "title": "The Null Pointer Phantom - Final Confrontation",
-            "question_text": "The rogue AI has corrupted our core authentication system with subtle vulnerabilities. Design a secure authentication function that properly handles edge cases, validates input, and prevents common security flaws like SQL injection, timing attacks, and null pointer exceptions.",
-            "expected_outcome": "A robust authentication function that: 1) Validates all inputs, 2) Uses secure password comparison (constant-time), 3) Handles null/empty inputs gracefully, 4) Prevents injection attacks, 5) Implements proper error handling without information leakage"
-        },
-        "react": {
-            "id": "boss-react-1", 
-            "mastery": "react",
-            "difficulty_level": "boss", 
-            "difficulty_rating": 95,
-            "title": "The State Corruption Demon - Component Crisis",
-            "question_text": "The AI has injected malicious state mutations into our React application, causing memory leaks and infinite re-renders. Create a secure, optimized React component that handles complex state updates, prevents unnecessary re-renders, and implements proper cleanup to defeat the corruption.",
-            "expected_outcome": "A React component that: 1) Uses proper hooks (useState, useEffect, useMemo), 2) Implements cleanup in useEffect, 3) Prevents infinite re-render loops, 4) Optimizes performance with proper dependencies, 5) Handles error boundaries"
-        },
-        "mathematics": {
-            "id": "boss-math-1",
-            "mastery": "mathematics", 
-            "difficulty_level": "boss",
-            "difficulty_rating": 95,
-            "title": "The Algorithm Overlord - Complexity Chaos", 
-            "question_text": "The AI is overwhelming our systems with exponential-time algorithms disguised as efficient solutions. Design an optimal algorithm that solves a complex problem (like finding shortest paths in a weighted graph) with the best possible time complexity while proving your solution is mathematically sound.",
-            "expected_outcome": "An optimal algorithm that: 1) Achieves the theoretical best time complexity, 2) Includes mathematical proof of correctness, 3) Handles edge cases properly, 4) Demonstrates understanding of algorithmic trade-offs, 5) Shows space complexity analysis"
-        }
-    }
-    
-    return boss_questions.get(mastery, boss_questions["python"])
-
 def determine_difficulty_progression(game_state: GameState) -> tuple:
     """Determine next question difficulty and use user's selected mastery"""
     
-    # New progression: 2 medium, then 2 hard, then 1 boss battle
+    # New progression: 2 medium, then 3 hard questions
     questions_answered = game_state.session_questions_answered
     
     if questions_answered < 2:
         difficulty = "medium"
-    elif questions_answered < 4:
-        difficulty = "hard"
     else:
-        # Question 5 is always a boss battle
-        difficulty = "boss"
+        difficulty = "hard"
     
     # Use user's selected mastery instead of rotating
     mastery = game_state.selected_mastery
@@ -369,12 +309,10 @@ STORY REQUIREMENTS:
 2. The technical question must feel like a natural solution to the crisis
 3. Integrate team members naturally - make their dialogue feel authentic
 4. Adapt the original question terminology to fit the story (change generic examples to story-relevant ones)
-**For Mathematical quesiton, you can change the terminologies, but keep the numeric value same as the original question**
-**For example : You bought a book for $15, which was 75% of its original price. What was the original price?(original Question) to make it fit in story you can change book to petawatts of charge but keep the numeric value of 15 and 75%
 5. Build suspense about potential system infiltration by rogue AIs
 6. Keep narrative concise but engaging (max 200 words)
 7. End with the technical challenge that needs immediate solution
-** You should never ask the question in a direct way or at the end of your story narration, the question should be blended with the story narration, So that user have to read the story and find the question within it.
+
 TONE: Professional but urgent, with underlying tension about AI threats
 
 Generate the narrative that leads naturally to the technical question:
@@ -384,57 +322,7 @@ Generate the narrative that leads naturally to the technical question:
         logger.info("🤖 Calling Gemini API for narrative generation...")
         if not model:
             logger.error("❌ Gemini model not initialized")
-    except Exception as e:
-        print(e)
-    def generate_boss_battle_narrative(question_data: Dict[str, Any], game_state: GameState) -> str:
-        """Generate epic boss battle narrative"""
-
-        logger.info(f"🔥 Generating boss battle narrative for: {question_data['id']}")
-
-        boss_names = {
-            "python": "The Null Pointer Phantom",
-            "react": "The State Corruption Demon", 
-            "mathematics": "The Algorithm Overlord"
-        }
-
-        boss_name = boss_names.get(question_data['mastery'], "The Code Destroyer")
-
-        prompt = f"""
-You are crafting the climactic boss battle scene of a tech thriller. This is the final confrontation!
-
-CONTEXT:
-- Player has completed 4 challenges and proven their skills
-- Performance Score: {game_state.performance_score}%
-- Team Trust: {"High" if all(trust > 70 for trust in game_state.team_trust.values()) else "Mixed"}
-- Final Boss: {boss_name}
-
-BOSS BATTLE SCENARIO:
-- Title: {question_data['title']}
-- The AI has revealed its true form and is making its final assault
-- This is a direct confrontation between human ingenuity and artificial corruption
-- The fate of NeoTech Corp and the digital realm hangs in the balance
-
-STORY REQUIREMENTS:
-1. Create an epic, cinematic opening to the boss battle (max 30 words)
-2. Show the boss AI taunting the player with corrupted code/logic
-3. Build maximum tension - this is the final showdown
-4. Include dramatic team support and rallying 
-5. End with the ultimate technical challenge that will determine victory
-
-TONE: Epic, high-stakes, cinematic boss battle with tech terminology
-
-Generate the boss battle introduction:
-"""
-
-    try:
-        if not model:
-            return f"🔥 **FINAL BOSS BATTLE!** {boss_name} emerges from the corrupted systems! This is your ultimate test - defeat the AI corruption with perfect code!"
-            
-        response = model.generate_content(prompt)
-        return response.text.strip()
-    except Exception as e:
-        logger.error(f"❌ Boss battle narrative generation failed: {str(e)}")
-        return f"🔥 **FINAL BOSS BATTLE!** {boss_name} has taken control of the core systems! Only flawless implementation can stop the digital apocalypse!"
+            return f"URGENT: System crisis detected! {question_data['title']} requires immediate attention. {question_data['question_text']}"
             
         response = model.generate_content(prompt)
         logger.info("✅ Gemini API call successful")
@@ -485,7 +373,6 @@ STORY REQUIREMENTS:
 2. The technical question must feel like a natural solution to the crisis
 3. Integrate team members naturally - make their dialogue feel authentic
 4. Adapt the original question terminology to fit the story (change generic examples to story-relevant ones)
-   **For Mathematical quesiton, you can change the terminologies, but keep the numeric value same as the original question**
 5. Build suspense about potential system infiltration by rogue AIs
 6. Keep narrative concise but engaging (max 200 words)
 7. End with the technical challenge that needs immediate solution
@@ -640,67 +527,44 @@ def analyze_code_quality(user_answer: str, question_data: Dict[str, Any]) -> boo
 def update_game_state_after_answer(game_state: GameState, is_correct: bool, score: float) -> GameState:
     """Update game state based on answer evaluation"""
     
-    try:
-        # Create a new GameState object with updated values
-        updated_state = GameState(
-            player_level=game_state.player_level,
-            experience_points=game_state.experience_points,
-            current_question_index=game_state.current_question_index,
-            performance_score=game_state.performance_score,
-            streak_count=game_state.streak_count,
-            badges=list(game_state.badges),  # Create new list
-            team_trust=dict(game_state.team_trust),  # Create new dict
-            story_path=game_state.story_path,
-            boss_battle_ready=game_state.boss_battle_ready,
-            session_questions_answered=game_state.session_questions_answered,
-            selected_mastery=game_state.selected_mastery
-        )
-        
-        # Update experience and streak
-        if is_correct:
-            updated_state.experience_points += int(score)
-            updated_state.streak_count += 1
-            # Boost team trust slightly
-            for char in updated_state.team_trust:
-                updated_state.team_trust[char] = min(100.0, updated_state.team_trust[char] + 2.0)
-        else:
-            updated_state.streak_count = 0
-            # Decrease team trust slightly
-            for char in updated_state.team_trust:
-                updated_state.team_trust[char] = max(0.0, updated_state.team_trust[char] - 5.0)
-        
-        # Update performance score (rolling average)
-        updated_state.performance_score = (updated_state.performance_score * 0.8) + (score * 0.2)
-        
-        # Level progression
-        xp_for_next_level = updated_state.player_level * 200
-        if updated_state.experience_points >= xp_for_next_level:
-            updated_state.player_level += 1
-            updated_state.boss_battle_ready = True
-        
-        # Badge system
-        new_badges = []
-        if updated_state.streak_count == 3 and "code_warrior" not in updated_state.badges:
-            new_badges.append("code_warrior")
-        if updated_state.streak_count == 5 and "debugging_master" not in updated_state.badges:
-            new_badges.append("debugging_master")
-        if score >= 95 and "perfectionist" not in updated_state.badges:
-            new_badges.append("perfectionist")
-        if updated_state.performance_score >= 90 and "elite_developer" not in updated_state.badges:
-            new_badges.append("elite_developer")
-        
-        updated_state.badges.extend(new_badges)
-        updated_state.current_question_index += 1
-        updated_state.session_questions_answered += 1
-        
-        logger.info(f"🎮 Game state updated: XP={updated_state.experience_points}, Level={updated_state.player_level}, Performance={updated_state.performance_score:.1f}%")
-        
-        return updated_state
-        
-    except Exception as e:
-        logger.error(f"❌ Error updating game state: {str(e)}")
-        # Return original state if update fails
-        return game_state
+    # Update experience and streak
+    if is_correct:
+        game_state.experience_points += int(score)
+        game_state.streak_count += 1
+        # Boost team trust slightly
+        for char in game_state.team_trust:
+            game_state.team_trust[char] = min(100, game_state.team_trust[char] + 2)
+    else:
+        game_state.streak_count = 0
+        # Decrease team trust slightly
+        for char in game_state.team_trust:
+            game_state.team_trust[char] = max(0, game_state.team_trust[char] - 5)
+    
+    # Update performance score (rolling average)
+    game_state.performance_score = (game_state.performance_score * 0.8) + (score * 0.2)
+    
+    # Level progression
+    xp_for_next_level = game_state.player_level * 200
+    if game_state.experience_points >= xp_for_next_level:
+        game_state.player_level += 1
+        game_state.boss_battle_ready = True
+    
+    # Badge system
+    new_badges = []
+    if game_state.streak_count == 3 and "code_warrior" not in game_state.badges:
+        new_badges.append("code_warrior")
+    if game_state.streak_count == 5 and "debugging_master" not in game_state.badges:
+        new_badges.append("debugging_master")
+    if score >= 95 and "perfectionist" not in game_state.badges:
+        new_badges.append("perfectionist")
+    if game_state.performance_score >= 90 and "elite_developer" not in game_state.badges:
+        new_badges.append("elite_developer")
+    
+    game_state.badges.extend(new_badges)
+    game_state.current_question_index += 1
+    game_state.session_questions_answered += 1
+    
+    return game_state
 
 @app.get("/")
 async def root():
@@ -714,10 +578,11 @@ async def get_next_question(request: QuestionRequest):
         game_state = request.game_state
         
         # Check if it's boss battle time
-        if game_state.boss_battle_ready or game_state.session_questions_answered >= 4:
+        if game_state.boss_battle_ready and game_state.player_level % 3 == 0:
+            # TODO: Implement boss battle logic
             is_boss_battle = True
             urgency_level = "critical"
-            time_limit = 600  # 10 minutes for boss battles
+            time_limit = 300  # 5 minutes for boss battles
         else:
             is_boss_battle = False
             urgency_level = "high" if game_state.performance_score < 60 else "medium"
@@ -731,10 +596,7 @@ async def get_next_question(request: QuestionRequest):
             raise HTTPException(status_code=404, detail="No suitable question found")
         
         # Generate immersive narrative
-        if is_boss_battle:
-            narrative = generate_boss_battle_narrative(question_data, game_state)
-        else:
-            narrative = generate_immersive_narrative(question_data, game_state)
+        narrative = generate_immersive_narrative(question_data, game_state)
         
         # Adapt question text to story context
         adapted_question = question_data['question_text']
@@ -768,18 +630,13 @@ async def submit_answer(submission: AnswerSubmission):
     """Evaluate user's answer and update game state"""
     
     try:
-        question = None
-        # Check if the question is a boss battle question
-        if "boss" in submission.question_id:
-            # If so, generate the question data locally instead of calling the DB
-            logger.info(f"🐲 Handling boss battle question: {submission.question_id}")
-            question = generate_boss_battle_question(submission.game_state.selected_mastery)
-        else:
-            # Otherwise, fetch the question from Supabase
-            question_data = supabase.table("questions").select("*").eq("id", submission.question_id).execute()
-            if not question_data.data:
-                raise HTTPException(status_code=404, detail=f"Question with ID '{submission.question_id}' not found")
-            question = question_data.data[0]
+        # Get question data for evaluation
+        question_data = supabase.table("questions").select("*").eq("id", submission.question_id).execute()
+        
+        if not question_data.data:
+            raise HTTPException(status_code=404, detail="Question not found")
+        
+        question = question_data.data[0]
         
         # Evaluate answer using LLM
         is_correct, score, feedback = evaluate_user_answer(
@@ -814,228 +671,19 @@ async def submit_answer(submission: AnswerSubmission):
         session_complete = updated_game_state.session_questions_answered >= 5
         
         response = EvaluationResponse(
-            is_correct=bool(is_correct),
-            score=float(score),
-            feedback=str(feedback),
-            story_continuation=str(story_continuation),
+            is_correct=is_correct,
+            score=score,
+            feedback=feedback,
+            story_continuation=story_continuation,
             updated_game_state=updated_game_state,
             achievement_unlocked=achievement_unlocked,
-            session_complete=bool(session_complete)
-        )
-        
-        return response
-
-    # Improved exception handling
-    except HTTPException as http_exc:
-        # Re-raise HTTPException so FastAPI can handle it
-        raise http_exc
-    except Exception as e:
-        logger.error(f"❌ An unexpected error occurred in submit_answer: {str(e)}")
-        # Return a proper HTTP 500 error instead of letting the function crash
-        raise HTTPException(status_code=500, detail=f"An internal error occurred: {str(e)}")
-
-def generate_team_hints(question_data: Dict[str, Any], game_state: GameState) -> List[Dict[str, Any]]:
-    """Generate hints from all three teammates - one will be deliberately wrong"""
-    
-    logger.info(f"💡 Generating team hints for question: {question_data['id']}")
-    
-    # Determine which teammate gives wrong advice (randomly)
-    wrong_advisor = random.choice(["senior_dev", "security_lead", "junior_dev"])
-    logger.info(f"🎭 Wrong advisor selected: {wrong_advisor}")
-    
-    prompt = f"""
-Generate three hints for this technical challenge. ONE hint should be subtly wrong or misleading.
-
-QUESTION:
-{question_data['question_text']}
-
-EXPECTED SOLUTION:
-{question_data['expected_outcome']}
-
-CHARACTER PERSONAS:
-- Alex Chen (Senior Developer): Analytical, focuses on efficiency and best practices
-- Maya Rodriguez (Security Lead): Security-focused, thinks about vulnerabilities 
-- Jordan Kim (Junior Developer): Eager but sometimes overthinks, asks questions
-
-HINT REQUIREMENTS:
-1. Generate one hint from each character's perspective
-2. Two hints should be helpful and correct
-3. ONE hint (from {CHARACTERS[wrong_advisor]['name']}) should be SUBTLY wrong - not obviously bad, but misleading
-4. Each hint should be 1-2 sentences, in character voice
-5. The wrong hint should seem plausible but lead to issues
-
-Return as JSON array:
-[
-  {{"character": "alex_chen", "hint": "...", "is_correct": true}},
-  {{"character": "maya_rodriguez", "hint": "...", "is_correct": true}},  
-  {{"character": "jordan_kim", "hint": "...", "is_correct": false}}
-]
-
-Make the wrong hint subtle and believable!
-"""
-
-    try:
-        if not model:
-            return generate_fallback_hints(question_data, wrong_advisor)
-            
-        response = model.generate_content(prompt)
-        hints_text = response.text.strip()
-        
-        # Clean and parse JSON
-        if hints_text.startswith('```json'):
-            hints_text = hints_text.replace('```json', '').replace('```', '').strip()
-        
-        start_idx = hints_text.find('[')
-        end_idx = hints_text.rfind(']') + 1
-        
-        if start_idx != -1 and end_idx > start_idx:
-            json_text = hints_text[start_idx:end_idx]
-            hints = json.loads(json_text)
-            
-            # Validate and ensure we have exactly one wrong hint
-            wrong_count = sum(1 for hint in hints if not hint.get('is_correct', True))
-            if wrong_count != 1:
-                logger.warning(f"⚠️ Wrong hint count: {wrong_count}, using fallback")
-                return generate_fallback_hints(question_data, wrong_advisor)
-            
-            logger.info(f"✅ Generated {len(hints)} hints with 1 wrong advice")
-            return hints
-        else:
-            logger.error("❌ Invalid JSON format in hints response")
-            return generate_fallback_hints(question_data, wrong_advisor)
-            
-    except Exception as e:
-        logger.error(f"❌ Hint generation failed: {str(e)}")
-        return generate_fallback_hints(question_data, wrong_advisor)
-
-def generate_fallback_hints(question_data: Dict[str, Any], wrong_advisor: str) -> List[Dict[str, Any]]:
-    """Fallback hint generation when LLM fails"""
-    
-    hints = [
-        {
-            "character": "alex_chen",
-            "hint": "Focus on the core requirements first, then optimize for edge cases.",
-            "is_correct": True
-        },
-        {
-            "character": "maya_rodriguez", 
-            "hint": "Don't forget to validate inputs and handle security implications.",
-            "is_correct": True
-        },
-        {
-            "character": "jordan_kim",
-            "hint": "I think we should start with the most complex approach to be thorough.",
-            "is_correct": False
-        }
-    ]
-    
-    # Make sure the wrong advisor gives the wrong hint
-    for hint in hints:
-        if hint["character"] == wrong_advisor.replace("_", "_"):
-            hint["is_correct"] = False
-        elif hint["is_correct"] == False and hint["character"] != wrong_advisor.replace("_", "_"):
-            hint["is_correct"] = True
-    
-    return hints
-
-@app.post("/get_team_hints", response_model=HintResponse)
-async def get_team_hints(request: HintRequest):
-    """Get hints from all three teammates"""
-    
-    try:
-        # Get question data
-        question_data = supabase.table("questions").select("*").eq("id", request.question_id).execute()
-        
-        if not question_data.data:
-            raise HTTPException(status_code=404, detail="Question not found")
-        
-        question = question_data.data[0]
-        
-        # Generate hints
-        hints = generate_team_hints(question, request.game_state)
-        
-        response = HintResponse(
-            hints=hints,
-            updated_game_state=request.game_state  # No changes for getting hints
+            session_complete=session_complete
         )
         
         return response
         
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error generating hints: {str(e)}")
-
-@app.post("/submit_trust_decision", response_model=TrustDecisionResponse)
-async def submit_trust_decision(decision: TrustDecision):
-    """Handle player's trust decision and apply consequences"""
-    
-    try:
-        # Get question data
-        question_data = supabase.table("questions").select("*").eq("id", decision.question_id).execute()
-        
-        if not question_data.data:
-            raise HTTPException(status_code=404, detail="Question not found")
-        
-        question = question_data.data[0]
-        
-        # Generate hints to determine correct choice
-        hints = generate_team_hints(question, decision.game_state)
-        
-        # Find if trusted teammate gave correct advice
-        trusted_hint = None
-        for hint in hints:
-            if hint["character"] == decision.trusted_teammate:
-                trusted_hint = hint
-                break
-        
-        if not trusted_hint:
-            raise HTTPException(status_code=400, detail="Invalid teammate selection")
-        
-        is_correct_trust = trusted_hint["is_correct"]
-        updated_game_state = decision.game_state.copy()
-        
-        if is_correct_trust:
-            # Trusted the right person - minor benefits
-            consequences = f"✅ **Wise choice!** {CHARACTERS[decision.trusted_teammate]['name']} gives you a confident nod. The team's morale improves."
-            
-            # Small trust boost for chosen teammate
-            if decision.trusted_teammate in updated_game_state.team_trust:
-                updated_game_state.team_trust[decision.trusted_teammate] = min(100, 
-                    updated_game_state.team_trust[decision.trusted_teammate] + 5)
-        else:
-            # Trusted the wrong person - apply repercussions
-            repercussions = [
-                "⚠️ **Bad Intel!** Following that advice wasted precious time. You lose 30 seconds from your submission window.",
-                "💔 **Team Friction!** The other teammates notice your poor judgment. Trust levels drop across the board.", 
-                "🎯 **Misdirection!** That advice sent you down the wrong path. Your confidence wavers, affecting your next solution quality."
-            ]
-            
-            chosen_repercussion = random.choice(repercussions)
-            consequences = f"❌ **Poor judgment!** {chosen_repercussion}"
-            
-            # Apply consequences to game state
-            if "time" in chosen_repercussion.lower():
-                # Time penalty (handled in frontend)
-                pass
-            elif "trust" in chosen_repercussion.lower():
-                # Reduce all trust levels
-                for teammate in updated_game_state.team_trust:
-                    updated_game_state.team_trust[teammate] = max(0, 
-                        updated_game_state.team_trust[teammate] - 10)
-            elif "confidence" in chosen_repercussion.lower():
-                # Performance penalty for next question
-                updated_game_state.performance_score = max(0, 
-                    updated_game_state.performance_score - 5)
-        
-        response = TrustDecisionResponse(
-            is_correct_trust=is_correct_trust,
-            consequences=consequences,
-            updated_game_state=updated_game_state
-        )
-        
-        return response
-        
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error processing trust decision: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error evaluating answer: {str(e)}")
 
 @app.get("/player_stats/{player_id}")
 async def get_player_stats(player_id: str):

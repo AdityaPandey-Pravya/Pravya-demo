@@ -78,49 +78,10 @@ st.markdown("""
         border: 2px solid #ff0000;
     }
     
-    .boss-battle {
-        background: linear-gradient(135deg, #ff0000 0%, #8b0000 100%);
-        padding: 1.5rem;
-        border-radius: 15px;
-        color: white;
-        border: 3px solid #ff6b6b;
-        margin: 1rem 0;
-        box-shadow: 0 0 20px rgba(255, 0, 0, 0.5);
-        animation: pulse-red 2s infinite;
-    }
-    
-    @keyframes pulse-red {
-        0% { box-shadow: 0 0 20px rgba(255, 0, 0, 0.5); }
-        50% { box-shadow: 0 0 30px rgba(255, 0, 0, 0.8); }
-        100% { box-shadow: 0 0 20px rgba(255, 0, 0, 0.5); }
-    }
-    
-    .hint-card {
-        background: #f8f9fa;
-        padding: 1rem;
-        border-radius: 10px;
-        margin: 0.5rem 0;
-        border-left: 4px solid #007bff;
-        color: #212529;
-    }
-    
-    .trust-button {
-        padding: 0.5rem 1rem;
-        border-radius: 5px;
-        border: none;
-        margin: 0.25rem;
-        cursor: pointer;
-        font-weight: bold;
-    }
-    
-    .trust-correct {
-        background: #28a745;
-        color: white;
-    }
-    
-    .trust-wrong {
-        background: #dc3545;
-        color: white;
+    @keyframes pulse {
+        0% { opacity: 1; }
+        50% { opacity: 0.5; }
+        100% { opacity: 1; }
     }
     
     .stat-card {
@@ -181,16 +142,6 @@ def initialize_game_state():
     
     if 'session_complete' not in st.session_state:
         st.session_state.session_complete = False
-    
-    # New session state for hint system
-    if 'show_hints' not in st.session_state:
-        st.session_state.show_hints = False
-    
-    if 'team_hints' not in st.session_state:
-        st.session_state.team_hints = []
-    
-    if 'awaiting_trust_decision' not in st.session_state:
-        st.session_state.awaiting_trust_decision = False
 
 def display_header():
     st.markdown("""
@@ -249,7 +200,7 @@ def display_stats_sidebar():
             
             st.markdown(f"""
             <div style="margin: 0.5rem 0;">
-                <strong style="color: #212529;">{member_name}</strong><br>
+                <strong style="color: #ffffff;">{member_name}</strong><br>
                 <div style="background: #e9ecef; border-radius: 10px; height: 20px; overflow: hidden;">
                     <div style="background: {trust_color}; height: 100%; width: {trust}%; transition: width 0.3s;"></div>
                 </div>
@@ -365,136 +316,12 @@ def get_next_question():
         else:
             st.error(f"Failed to get question: {response.text}")
             return False
-    except Exception as e:
-        print(e)
+            
+    except requests.exceptions.RequestException as e:
+        st.error(f"Connection error: {str(e)}")
+        return False
 
 def submit_answer(user_answer: str):
-    """Submit user's answer for evaluation"""
-    try:
-        with st.spinner("🔍 Deploying solution..."):
-            response = requests.post(
-                f"{BACKEND_URL}/submit_answer",
-                json={
-                    "game_state": st.session_state.game_state,
-                    "user_answer": user_answer,
-                    "question_id": st.session_state.current_question['id']
-                },
-                timeout=30
-            )
-        
-        if response.status_code == 200:
-            data = response.json()
-            st.session_state.game_state = data['updated_game_state']
-            
-            # Add user answer to conversation history
-            st.session_state.conversation_history.append({
-                "type": "user_answer",
-                "content": user_answer,
-                "question_id": st.session_state.current_question['id'],
-                "timestamp": time.time()
-            })
-            
-            # Add story continuation to conversation history
-            st.session_state.conversation_history.append({
-                "type": "story_continuation",
-                "content": data['story_continuation'],
-                "is_correct": data['is_correct'],
-                "score": data['score'],
-                "feedback": data['feedback'],
-                "achievement": data.get('achievement_unlocked'),
-                "timestamp": time.time()
-            })
-            
-            # Check if session is complete
-            if data.get('session_complete', False):
-                st.session_state.session_complete = True
-                st.session_state.awaiting_answer = False
-                st.session_state.waiting_for_question = False
-            else:
-                # Reset for next question
-                st.session_state.awaiting_answer = False
-                st.session_state.waiting_for_question = True
-            
-            st.session_state.user_answer = ""
-            
-            return True
-            
-        else:
-            st.error(f"Evaluation failed: {response.text}")
-            return False
-            
-    except requests.exceptions.RequestException as e:
-        st.error(f"Connection error: {str(e)}")
-        return False
-            
-    except requests.exceptions.RequestException as e:
-        st.error(f"Connection error: {str(e)}")
-        return False
-
-def get_team_hints():
-    """Get hints from all teammates"""
-    try:
-        with st.spinner("🤔 Consulting the team..."):
-            response = requests.post(
-                f"{BACKEND_URL}/get_team_hints",
-                json={
-                    "game_state": st.session_state.game_state,
-                    "question_id": st.session_state.current_question['id']
-                },
-                timeout=30
-            )
-        
-        if response.status_code == 200:
-            data = response.json()
-            st.session_state.team_hints = data['hints']
-            st.session_state.show_hints = True
-            st.session_state.awaiting_trust_decision = True
-            return True
-        else:
-            st.error(f"Failed to get hints: {response.text}")
-            return False
-            
-    except requests.exceptions.RequestException as e:
-        st.error(f"Connection error: {str(e)}")
-        return False
-
-def submit_trust_decision(trusted_teammate: str):
-    """Submit trust decision and handle consequences"""
-    try:
-        with st.spinner("⚖️ Processing trust decision..."):
-            response = requests.post(
-                f"{BACKEND_URL}/submit_trust_decision",
-                json={
-                    "game_state": st.session_state.game_state,
-                    "question_id": st.session_state.current_question['id'],
-                    "trusted_teammate": trusted_teammate
-                },
-                timeout=30
-            )
-        
-        if response.status_code == 200:
-            data = response.json()
-            st.session_state.game_state = data['updated_game_state']
-            
-            # Add trust decision to conversation history
-            st.session_state.conversation_history.append({
-                "type": "trust_decision",
-                "trusted_teammate": trusted_teammate,
-                "is_correct": data['is_correct_trust'],
-                "consequences": data['consequences'],
-                "timestamp": time.time()
-            })
-            
-            st.session_state.awaiting_trust_decision = False
-            return True
-            
-        else:
-            st.error(f"Trust decision failed: {response.text}")
-            return False
-            
-    except requests.exceptions.RequestException as e:
-        st.error(f"Connection error: {str(e)}")
-        return False
     """Submit user's answer for evaluation"""
     try:
         with st.spinner("🔍 Deploying solution..."):
@@ -570,24 +397,15 @@ def display_conversation_history():
     # Display conversation history
     for i, entry in enumerate(st.session_state.conversation_history):
         if entry['type'] == 'narrative':
-            # Display narrative with urgency styling
+            # Story narrative with question
             urgency_class = "urgency-critical" if st.session_state.get('urgency_level') == 'critical' else ""
             
-            # Check if it's a boss battle
-            if entry['question'].get('difficulty_level') == 'boss':
-                st.markdown(f"""
-                <div class="boss-battle">
-                    <h3>🔥 FINAL BOSS BATTLE: {entry['question']['title']}</h3>
-                    <p>{entry['content']}</p>
-                </div>
-                """, unsafe_allow_html=True)
-            else:
-                st.markdown(f"""
-                <div class="crisis-alert {urgency_class}">
-                    <h4>🚨 CRISIS #{i//3 + 1}: {entry['question']['title']}</h4>
-                    <p>{entry['content']}</p>
-                </div>
-                """, unsafe_allow_html=True)
+            st.markdown(f"""
+            <div class="crisis-alert {urgency_class}">
+                <h4>🚨 CRISIS #{i//3 + 1}: {entry['question']['title']}</h4>
+                <p>{entry['content']}</p>
+            </div>
+            """, unsafe_allow_html=True)
             
             # Display technical challenge
             question = entry['question']
@@ -629,118 +447,16 @@ def display_conversation_history():
                 st.success(f"🏆 Achievement Unlocked: {entry['achievement'].replace('_', ' ').title()}!")
             
             st.markdown("---")
-        
-        elif entry['type'] == 'trust_decision':
-            # Trust decision results
-            teammate_names = {
-                "alex_chen": "Alex Chen", 
-                "maya_rodriguez": "Maya Rodriguez",
-                "jordan_kim": "Jordan Kim"
-            }
-            
-            trusted_name = teammate_names.get(entry['trusted_teammate'], entry['trusted_teammate'])
-            
-            if entry['is_correct']:
-                st.markdown(f"""
-                <div class="team-status">
-                    <h4>🎯 TRUSTED: {trusted_name}</h4>
-                    <p>{entry['consequences']}</p>
-                </div>
-                """, unsafe_allow_html=True)
-            else:
-                st.markdown(f"""
-                <div class="crisis-alert">
-                    <h4>💔 MISTRUSTED: {trusted_name}</h4>
-                    <p>{entry['consequences']}</p>
-                </div>
-                """, unsafe_allow_html=True)
-            
-            st.markdown("---")
-
-def display_team_hints():
-    """Display team hints and trust decision interface"""
-    
-    if not st.session_state.show_hints:
-        return
-    
-    st.markdown("### 🤝 Team Consultation")
-    st.markdown("Your teammates are offering advice. **One of them has wrong information.** Choose wisely!")
-    
-    teammate_info = {
-        "alex_chen": {
-            "name": "Alex Chen",
-            "role": "Senior Backend Developer", 
-            "emoji": "👨‍💻",
-            "trust": st.session_state.game_state['team_trust']['senior_dev']
-        },
-        "maya_rodriguez": {
-            "name": "Maya Rodriguez",
-            "role": "Cybersecurity Lead",
-            "emoji": "🛡️", 
-            "trust": st.session_state.game_state['team_trust']['security_lead']
-        },
-        "jordan_kim": {
-            "name": "Jordan Kim", 
-            "role": "Junior Frontend Developer",
-            "emoji": "🎨",
-            "trust": st.session_state.game_state['team_trust']['junior_dev']
-        }
-    }
-    
-    for hint in st.session_state.team_hints:
-        teammate = teammate_info[hint['character']]
-        trust_level = teammate['trust']
-        trust_color = "#28a745" if trust_level >= 80 else "#ffc107" if trust_level >= 60 else "#dc3545"
-        
-        st.markdown(f"""
-        <div class="hint-card">
-            <h4>{teammate['emoji']} {teammate['name']} - {teammate['role']}</h4>
-            <div style="background: #e9ecef; border-radius: 10px; height: 8px; margin: 0.5rem 0;">
-                <div style="background: {trust_color}; height: 100%; width: {trust_level}%; border-radius: 10px;"></div>
-            </div>
-            <p><strong>Advice:</strong> "{hint['hint']}"</p>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        # Trust decision buttons
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            if st.button(f"🤝 Trust {teammate['name']}", 
-                        key=f"trust_{hint['character']}", 
-                        use_container_width=True,
-                        type="primary"):
-                if submit_trust_decision(hint['character']):
-                    st.rerun()
-        
-        with col2:
-            if st.button(f"❌ Doubt {teammate['name']}", 
-                        key=f"doubt_{hint['character']}", 
-                        use_container_width=True):
-                # For now, just record doubt without major consequences
-                st.warning(f"You chose to doubt {teammate['name']}'s advice. Proceeding without their input.")
 
 def display_current_input():
     """Display input interface for current question"""
     
     if st.session_state.session_complete:
         st.markdown("""
-        <div class="boss-battle">
-            <h3>🎉 MISSION COMPLETE - DIGITAL REALM SECURED!</h3>
-            <p>Congratulations, Code Warrior! You've successfully defeated the AI corruption and saved NeoTech Corp!</p>
-            <p>Your skills under pressure have proven that human ingenuity still reigns supreme over artificial chaos.</p>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        # Show final stats
-        game_state = st.session_state.game_state
-        st.markdown(f"""
         <div class="team-status">
-            <h4>📊 Final Mission Stats</h4>
-            <p><strong>Performance Score:</strong> {game_state['performance_score']:.1f}%</p>
-            <p><strong>Experience Gained:</strong> {game_state['experience_points']} XP</p>
-            <p><strong>Achievements Unlocked:</strong> {len(game_state['badges'])}</p>
-            <p><strong>Team Trust Maintained:</strong> {sum(game_state['team_trust'].values())/3:.1f}%</p>
+            <h3>🎉 MISSION COMPLETE!</h3>
+            <p>Congratulations! You've successfully completed your DevStorm demo session.</p>
+            <p>You've proven your skills under pressure and helped save NeoTech Corp!</p>
         </div>
         """, unsafe_allow_html=True)
         
@@ -751,18 +467,12 @@ def display_current_input():
             st.rerun()
         return
     
-    if st.session_state.awaiting_trust_decision:
-        display_team_hints()
-        return
-    
     if st.session_state.waiting_for_question:
         questions_answered = st.session_state.game_state['session_questions_answered']
         total_questions = 5
         
         if questions_answered == 0:
             button_text = "🚨 Begin First Crisis Analysis"
-        elif questions_answered == 4:
-            button_text = f"🔥 INITIATE FINAL BOSS BATTLE"
         else:
             button_text = f"🚨 Analyze Next System Alert ({questions_answered}/{total_questions} complete)"
         
@@ -777,24 +487,13 @@ def display_current_input():
         # Answer input based on question type
         question = st.session_state.current_question
         
-        # Check if it's a boss battle
-        is_boss = question.get('difficulty_level') == 'boss'
-        
-        if is_boss:
-            st.markdown("""
-            <div class="boss-battle">
-                <h4>⚡ BOSS BATTLE ACTIVE ⚡</h4>
-                <p>This is your final test! One perfect solution to end the digital chaos.</p>
-            </div>
-            """, unsafe_allow_html=True)
-        
         if question['mastery'] in ['python', 'react']:
             # Code editor for programming questions
             user_answer = st.text_area(
-                "Enter your ultimate solution:" if is_boss else "Enter your code solution:",
+                "Enter your code solution:",
                 value=st.session_state.user_answer,
-                height=300 if is_boss else 200,
-                placeholder="# This is it - your final stand against the AI corruption!\n# Code with precision, the digital realm depends on you!\n" if is_boss else "# Enter your solution here...\n# This code will be deployed immediately!\n",
+                height=200,
+                placeholder="# Enter your solution here...\n# This code will be deployed immediately!\n",
                 key=f"code_input_{len(st.session_state.conversation_history)}"
             )
             
@@ -806,10 +505,10 @@ def display_current_input():
         else:
             # Text input for mathematics/theory questions
             user_answer = st.text_area(
-                "Enter your ultimate solution:" if is_boss else "Enter your solution:",
+                "Enter your solution:",
                 value=st.session_state.user_answer,
-                height=250 if is_boss else 150,
-                placeholder="Provide your final, definitive solution to end this crisis..." if is_boss else "Provide your detailed solution and explanation...",
+                height=150,
+                placeholder="Provide your detailed solution and explanation...",
                 key=f"text_input_{len(st.session_state.conversation_history)}"
             )
         
@@ -822,22 +521,14 @@ def display_current_input():
                 st.success("Draft saved!")
         
         with col2:
-            if not st.session_state.show_hints:
-                if st.button("🤔 Ask Team for Advice", use_container_width=True):
-                    if get_team_hints():
-                        st.rerun()
-            else:
-                st.button("🤔 Team Consulted", disabled=True, use_container_width=True)
+            if st.button("🔍 Ask Team for Hint", use_container_width=True):
+                # Generate a contextual hint
+                st.info("💬 **Alex Chen:** Think about the specific requirements mentioned in the briefing. What's the most critical aspect we need to address first?")
         
         with col3:
-            deploy_text = "🔥 DEPLOY FINAL SOLUTION" if is_boss else "🚀 Deploy Solution"
-            if st.button(deploy_text, type="primary", use_container_width=True):
+            if st.button("🚀 Deploy Solution", type="primary", use_container_width=True):
                 if user_answer.strip():
                     if submit_answer(user_answer):
-                        # Reset hint state for next question
-                        st.session_state.show_hints = False
-                        st.session_state.team_hints = []
-                        st.session_state.awaiting_trust_decision = False
                         st.rerun()
                 else:
                     st.warning("Please enter a solution before deploying!")
