@@ -42,11 +42,11 @@ except Exception as e:
     supabase = None
 
 # Initialize Gemini
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-logger.info(f"Gemini API Key configured: {'Yes' if GEMINI_API_KEY else 'No'}")
+GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
+logger.info(f"Gemini API Key configured: {'Yes' if GOOGLE_API_KEY else 'No'}")
 
 try:
-    genai.configure(api_key=GEMINI_API_KEY)
+    genai.configure(api_key=GOOGLE_API_KEY)
     model = genai.GenerativeModel('gemini-2.5-flash')
     logger.info("✅ Gemini AI client initialized successfully")
     
@@ -376,7 +376,6 @@ STORY REQUIREMENTS:
 7. End with the technical challenge that needs immediate solution
 ** You should never ask the question in a direct way or at the end of your story narration, the question should be blended with the story narration, So that user have to read the story and find the question within it.**
 ** Question information should be scattered in the entire narration, so that it does not feel like the story narration is useless, and the user simply reads the last paragraph of the narration to solve the question.**
-
 TONE: Professional but urgent, with underlying tension about AI threats
 
 Generate the narrative that leads naturally to the technical question:
@@ -417,7 +416,7 @@ BOSS BATTLE SCENARIO:
 - The fate of NeoTech Corp and the digital realm hangs in the balance
 
 STORY REQUIREMENTS:
-1. Create an epic, cinematic opening to the boss battle (max 250 words)
+1. Create an epic, cinematic opening to the boss battle (max 30 words)
 2. Show the boss AI taunting the player with corrupted code/logic
 3. Build maximum tension - this is the final showdown
 4. Include dramatic team support and rallying 
@@ -487,6 +486,7 @@ STORY REQUIREMENTS:
 2. The technical question must feel like a natural solution to the crisis
 3. Integrate team members naturally - make their dialogue feel authentic
 4. Adapt the original question terminology to fit the story (change generic examples to story-relevant ones)
+   **For Mathematical quesiton, you can change the terminologies, but keep the numeric value same as the original question**
 5. Build suspense about potential system infiltration by rogue AIs
 6. Keep narrative concise but engaging (max 200 words)
 7. End with the technical challenge that needs immediate solution
@@ -834,25 +834,15 @@ async def submit_answer(submission: AnswerSubmission):
         logger.error(f"❌ An unexpected error occurred in submit_answer: {str(e)}")
         # Return a proper HTTP 500 error instead of letting the function crash
         raise HTTPException(status_code=500, detail=f"An internal error occurred: {str(e)}")
-        
+
 def generate_team_hints(question_data: Dict[str, Any], game_state: GameState) -> List[Dict[str, Any]]:
     """Generate hints from all three teammates - one will be deliberately wrong"""
     
     logger.info(f"💡 Generating team hints for question: {question_data['id']}")
     
     # Determine which teammate gives wrong advice (randomly)
-    wrong_advisors = ["senior_dev", "security_lead", "junior_dev"]
-    wrong_advisor = random.choice(wrong_advisors)
+    wrong_advisor = random.choice(["senior_dev", "security_lead", "junior_dev"])
     logger.info(f"🎭 Wrong advisor selected: {wrong_advisor}")
-    
-    # Map to character names for LLM prompt
-    advisor_to_character = {
-        "senior_dev": "Alex Chen (Senior Developer)",
-        "security_lead": "Maya Rodriguez (Security Lead)",
-        "junior_dev": "Jordan Kim (Junior Developer)"
-    }
-    
-    wrong_character_name = advisor_to_character[wrong_advisor]
     
     prompt = f"""
 Generate three hints for this technical challenge. ONE hint should be subtly wrong or misleading.
@@ -871,7 +861,7 @@ CHARACTER PERSONAS:
 HINT REQUIREMENTS:
 1. Generate one hint from each character's perspective
 2. Two hints should be helpful and correct
-3. ONE hint (from {wrong_character_name}) should be SUBTLY wrong - not obviously bad, but misleading
+3. ONE hint (from {CHARACTERS[wrong_advisor]['name']}) should be SUBTLY wrong - not obviously bad, but misleading
 4. Each hint should be 1-2 sentences, in character voice
 5. The wrong hint should seem plausible but lead to issues
 
@@ -922,15 +912,6 @@ Make the wrong hint subtle and believable!
 def generate_fallback_hints(question_data: Dict[str, Any], wrong_advisor: str) -> List[Dict[str, Any]]:
     """Fallback hint generation when LLM fails"""
     
-    # Map wrong_advisor key to character name
-    advisor_mapping = {
-        "senior_dev": "alex_chen",
-        "security_lead": "maya_rodriguez", 
-        "junior_dev": "jordan_kim"
-    }
-    
-    wrong_character = advisor_mapping.get(wrong_advisor, "alex_chen")
-    
     hints = [
         {
             "character": "alex_chen",
@@ -951,12 +932,11 @@ def generate_fallback_hints(question_data: Dict[str, Any], wrong_advisor: str) -
     
     # Make sure the wrong advisor gives the wrong hint
     for hint in hints:
-        if hint["character"] == wrong_character:
+        if hint["character"] == wrong_advisor.replace("_", "_"):
             hint["is_correct"] = False
-        elif hint["is_correct"] == False and hint["character"] != wrong_character:
+        elif hint["is_correct"] == False and hint["character"] != wrong_advisor.replace("_", "_"):
             hint["is_correct"] = True
     
-    logger.info(f"🎭 Fallback hints generated with {wrong_character} as wrong advisor")
     return hints
 
 @app.post("/get_team_hints", response_model=HintResponse)
@@ -990,8 +970,6 @@ async def submit_trust_decision(decision: TrustDecision):
     """Handle player's trust decision and apply consequences"""
     
     try:
-        logger.info(f"🤝 Processing trust decision: trusted={decision.trusted_teammate}")
-        
         # Get question data
         question_data = supabase.table("questions").select("*").eq("id", decision.question_id).execute()
         
@@ -1011,82 +989,43 @@ async def submit_trust_decision(decision: TrustDecision):
                 break
         
         if not trusted_hint:
-            logger.error(f"❌ Invalid teammate selection: {decision.trusted_teammate}")
-            raise HTTPException(status_code=400, detail=f"Invalid teammate selection: {decision.trusted_teammate}")
+            raise HTTPException(status_code=400, detail="Invalid teammate selection")
         
         is_correct_trust = trusted_hint["is_correct"]
-        
-        # Create updated game state
-        updated_game_state = GameState(
-            player_level=decision.game_state.player_level,
-            experience_points=decision.game_state.experience_points,
-            current_question_index=decision.game_state.current_question_index,
-            performance_score=decision.game_state.performance_score,
-            streak_count=decision.game_state.streak_count,
-            badges=list(decision.game_state.badges),
-            team_trust=dict(decision.game_state.team_trust),
-            story_path=decision.game_state.story_path,
-            boss_battle_ready=decision.game_state.boss_battle_ready,
-            session_questions_answered=decision.game_state.session_questions_answered,
-            selected_mastery=decision.game_state.selected_mastery
-        )
-        
-        # Map character names to trust keys
-        character_to_trust_key = {
-            "alex_chen": "senior_dev",
-            "maya_rodriguez": "security_lead", 
-            "jordan_kim": "junior_dev"
-        }
-        
-        trust_key = character_to_trust_key.get(decision.trusted_teammate)
-        if not trust_key:
-            logger.error(f"❌ No trust key mapping for: {decision.trusted_teammate}")
-            raise HTTPException(status_code=400, detail=f"Invalid character: {decision.trusted_teammate}")
-        
-        character_names = {
-            "alex_chen": "Alex Chen",
-            "maya_rodriguez": "Maya Rodriguez",
-            "jordan_kim": "Jordan Kim"
-        }
-        
-        character_name = character_names.get(decision.trusted_teammate, decision.trusted_teammate)
+        updated_game_state = decision.game_state.copy()
         
         if is_correct_trust:
             # Trusted the right person - minor benefits
-            consequences = f"✅ **Wise choice!** {character_name} gives you a confident nod. The team's morale improves, and you feel more prepared for the coding challenge ahead."
+            consequences = f"✅ **Wise choice!** {CHARACTERS[decision.trusted_teammate]['name']} gives you a confident nod. The team's morale improves."
             
             # Small trust boost for chosen teammate
-            if trust_key in updated_game_state.team_trust:
-                updated_game_state.team_trust[trust_key] = min(100.0, 
-                    updated_game_state.team_trust[trust_key] + 5.0)
+            if decision.trusted_teammate in updated_game_state.team_trust:
+                updated_game_state.team_trust[decision.trusted_teammate] = min(100, 
+                    updated_game_state.team_trust[decision.trusted_teammate] + 5)
         else:
             # Trusted the wrong person - apply repercussions
             repercussions = [
-                f"⚠️ **Misdirection!** {character_name}'s advice led you astray. You waste precious mental energy second-guessing yourself.",
-                f"💔 **Team Tension!** The other teammates exchange worried glances after you trusted {character_name}'s flawed advice. Team confidence drops.", 
-                f"🎯 **Poor Judgment!** Following {character_name}'s suggestion shows questionable decision-making. Your confidence wavers for the upcoming challenge."
+                "⚠️ **Bad Intel!** Following that advice wasted precious time. You lose 30 seconds from your submission window.",
+                "💔 **Team Friction!** The other teammates notice your poor judgment. Trust levels drop across the board.", 
+                "🎯 **Misdirection!** That advice sent you down the wrong path. Your confidence wavers, affecting your next solution quality."
             ]
             
             chosen_repercussion = random.choice(repercussions)
-            consequences = chosen_repercussion
+            consequences = f"❌ **Poor judgment!** {chosen_repercussion}"
             
             # Apply consequences to game state
-            if "tension" in chosen_repercussion.lower() or "confidence drops" in chosen_repercussion.lower():
+            if "time" in chosen_repercussion.lower():
+                # Time penalty (handled in frontend)
+                pass
+            elif "trust" in chosen_repercussion.lower():
                 # Reduce all trust levels
                 for teammate in updated_game_state.team_trust:
-                    updated_game_state.team_trust[teammate] = max(0.0, 
-                        updated_game_state.team_trust[teammate] - 8.0)
-            elif "confidence wavers" in chosen_repercussion.lower():
+                    updated_game_state.team_trust[teammate] = max(0, 
+                        updated_game_state.team_trust[teammate] - 10)
+            elif "confidence" in chosen_repercussion.lower():
                 # Performance penalty for next question
-                updated_game_state.performance_score = max(0.0, 
-                    updated_game_state.performance_score - 3.0)
-            else:
-                # General trust penalty with the specific character
-                if trust_key in updated_game_state.team_trust:
-                    updated_game_state.team_trust[trust_key] = max(0.0, 
-                        updated_game_state.team_trust[trust_key] - 15.0)
-        
-        logger.info(f"✅ Trust decision processed: correct={is_correct_trust}")
+                updated_game_state.performance_score = max(0, 
+                    updated_game_state.performance_score - 5)
         
         response = TrustDecisionResponse(
             is_correct_trust=is_correct_trust,
@@ -1097,7 +1036,6 @@ async def submit_trust_decision(decision: TrustDecision):
         return response
         
     except Exception as e:
-        logger.error(f"❌ Error processing trust decision: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error processing trust decision: {str(e)}")
 
 @app.get("/player_stats/{player_id}")
