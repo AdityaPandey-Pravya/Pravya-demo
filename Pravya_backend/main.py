@@ -42,11 +42,11 @@ except Exception as e:
     supabase = None
 
 # Initialize Gemini
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-logger.info(f"Gemini API Key configured: {'Yes' if GEMINI_API_KEY else 'No'}")
+GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
+logger.info(f"Gemini API Key configured: {'Yes' if GOOGLE_API_KEY else 'No'}")
 
 try:
-    genai.configure(api_key=GEMINI_API_KEY)
+    genai.configure(api_key=GOOGLE_API_KEY)
     model = genai.GenerativeModel('gemini-2.5-flash')
     logger.info("✅ Gemini AI client initialized successfully")
     
@@ -345,88 +345,95 @@ def generate_immersive_narrative(question_data: Dict[str, Any], game_state: Game
             character_context += f"{char['name']} ({char['role']}) has your complete trust. "
     
     prompt = f"""
-You are a master storyteller creating an immersive tech thriller narrative. Generate a compelling scenario for this coding challenge:
+    You are a master storyteller creating an immersive tech thriller narrative. Generate a compelling scenario for this coding challenge:
 
-CONTEXT:
-- Player Level: {game_state.player_level}
-- Performance Score: {game_state.performance_score}%
-- Story Tension: {story_tension}
-- Team Morale: {team_morale}
-- Current Streak: {game_state.streak_count}
-- Questions Answered: {game_state.session_questions_answered}
+    CONTEXT:
+    - Player Level: {game_state.player_level}
+    - Performance Score: {game_state.performance_score}%
+    - Story Tension: {story_tension}
+    - Team Morale: {team_morale}
+    - Current Streak: {game_state.streak_count}
+    - Questions Answered: {game_state.session_questions_answered}
 
-TECHNICAL CHALLENGE:
-- Title: {question_data['title']}
-- Mastery: {question_data['mastery']}
-- Difficulty: {question_data['difficulty_level']}
-- Original Question: {question_data['question_text']}
+    TECHNICAL CHALLENGE:
+    - Title: {question_data['title']}
+    - Mastery: {question_data['mastery']}
+    - Difficulty: {question_data['difficulty_level']}
+    - Original Question: {question_data['question_text']}
 
-TEAM DYNAMICS:
-{character_context}
+    TEAM DYNAMICS:
+    {character_context}
 
-STORY REQUIREMENTS:
-1. Create a urgent, realistic development crisis at NeoTech Corp
-2. The technical question must feel like a natural solution to the crisis
-3. Integrate team members naturally - make their dialogue feel authentic
-4. Adapt the original question terminology to fit the story (change generic examples to story-relevant ones)
-**For Mathematical quesiton, you can change the terminologies, but keep the numeric value same as the original question**
-**For example : You bought a book for $15, which was 75% of its original price. What was the original price?(original Question) to make it fit in story you can change book to petawatts of charge but keep the numeric value of 15 and 75%
-5. Build suspense about potential system infiltration by rogue AIs
-6. Keep narrative concise but engaging (max 200 words)
-7. End with the technical challenge that needs immediate solution
-** You should never ask the question in a direct way or at the end of your story narration, the question should be blended with the story narration, So that user have to read the story and find the question within it.**
-** Question information should be scattered in the entire narration, so that it does not feel like the story narration is useless, and the user simply reads the last paragraph of the narration to solve the question.**
+    STORY REQUIREMENTS:
+    1. Create a urgent, realistic development crisis at NeoTech Corp
+    2. The technical question must feel like a natural solution to the crisis
+    3. Integrate team members naturally - make their dialogue feel authentic
+    **For Mathematical quesiton, you can change the terminologies, but keep the numeric value same as the original question**
+    **For example : You bought a book for $15, which was 75% of its original price. What was the original price?(original Question) to make it fit in story you can change book to petawatts of charge but keep the numeric value of 15 and 75%
+    5. Build suspense about potential system infiltration by rogue AIs
+    6. Keep narrative concise but engaging (max 100 words)
+    7. End with the technical challenge that needs immediate solution
+    ** You should never ask the question in a direct way or at the end of your story narration, the question should be blended with the story narration, So that user have to read the story and find the question within it.**
+    ** Question information should be scattered in the entire narration, so that it does not feel like the story narration is useless, and the user simply reads the last paragraph of the narration to solve the question.**
 
-TONE: Professional but urgent, with underlying tension about AI threats
+    TONE: Professional but urgent, with underlying tension about AI threats
 
-Generate the narrative that leads naturally to the technical question:
-"""
+    Generate the narrative that leads naturally to the technical question:
+    """
 
     try:
         logger.info("🤖 Calling Gemini API for narrative generation...")
         if not model:
             logger.error("❌ Gemini model not initialized")
+
+    
+    
+        response = model.generate_content(prompt)
+        logger.info("✅ Gemini API call successful")
+        logger.info(f"📝 Generated narrative length: {len(response.text)} characters")
+        return response.text
     except Exception as e:
-        print(e)
-    def generate_boss_battle_narrative(question_data: Dict[str, Any], game_state: GameState) -> str:
-        """Generate epic boss battle narrative"""
-
-        logger.info(f"🔥 Generating boss battle narrative for: {question_data['id']}")
-
-        boss_names = {
-            "python": "The Null Pointer Phantom",
-            "react": "The State Corruption Demon", 
-            "mathematics": "The Algorithm Overlord"
-        }
-
-        boss_name = boss_names.get(question_data['mastery'], "The Code Destroyer")
-
-        prompt = f"""
-You are crafting the climactic boss battle scene of a tech thriller. This is the final confrontation!
-
-CONTEXT:
-- Player has completed 4 challenges and proven their skills
-- Performance Score: {game_state.performance_score}%
-- Team Trust: {"High" if all(trust > 70 for trust in game_state.team_trust.values()) else "Mixed"}
-- Final Boss: {boss_name}
-
-BOSS BATTLE SCENARIO:
-- Title: {question_data['title']}
-- The AI has revealed its true form and is making its final assault
-- This is a direct confrontation between human ingenuity and artificial corruption
-- The fate of NeoTech Corp and the digital realm hangs in the balance
-
-STORY REQUIREMENTS:
-1. Create an epic, cinematic opening to the boss battle (max 250 words)
-2. Show the boss AI taunting the player with corrupted code/logic
-3. Build maximum tension - this is the final showdown
-4. Include dramatic team support and rallying 
-5. End with the ultimate technical challenge that will determine victory
-
-TONE: Epic, high-stakes, cinematic boss battle with tech terminology
-
-Generate the boss battle introduction:
-"""
+        logger.error(f"❌ Gemini API call failed: {str(e)}")
+        return f"URGENT: System crisis detected! {question_data['title']} requires immediate attention. {question_data['question_text']}"
+def generate_boss_battle_narrative(question_data: Dict[str, Any], game_state: GameState) -> str:
+    """Generate epic boss battle narrative"""
+    
+    logger.info(f"🔥 Generating boss battle narrative for: {question_data['id']}")
+    
+    boss_names = {
+        "python": "The Null Pointer Phantom",
+        "react": "The State Corruption Demon", 
+        "mathematics": "The Algorithm Overlord"
+    }
+    
+    boss_name = boss_names.get(question_data['mastery'], "The Code Destroyer")
+    
+    prompt = f"""
+    You are crafting the climactic boss battle scene of a tech thriller. This is the final confrontation!
+    
+    CONTEXT:
+    - Player has completed 4 challenges and proven their skills
+    - Performance Score: {game_state.performance_score}%
+    - Team Trust: {"High" if all(trust > 70 for trust in game_state.team_trust.values()) else "Mixed"}
+    - Final Boss: {boss_name}
+    
+    BOSS BATTLE SCENARIO:
+    - Title: {question_data['title']}
+    - The AI has revealed its true form and is making its final assault
+    - This is a direct confrontation between human ingenuity and artificial corruption
+    - The fate of NeoTech Corp and the digital realm hangs in the balance
+    
+    STORY REQUIREMENTS:
+    1. Create an epic, cinematic opening to the boss battle (max 100 words)
+    2. Show the boss AI taunting the player with corrupted code/logic
+    3. Build maximum tension - this is the final showdown
+    4. Include dramatic team support and rallying 
+    5. End with the ultimate technical challenge that will determine victory
+    
+    TONE: Epic, high-stakes, cinematic boss battle with tech terminology
+    
+    Generate the boss battle introduction:
+    """
 
     try:
         if not model:
@@ -437,70 +444,6 @@ Generate the boss battle introduction:
     except Exception as e:
         logger.error(f"❌ Boss battle narrative generation failed: {str(e)}")
         return f"🔥 **FINAL BOSS BATTLE!** {boss_name} has taken control of the core systems! Only flawless implementation can stop the digital apocalypse!"
-            
-        response = model.generate_content(prompt)
-        logger.info("✅ Gemini API call successful")
-        logger.info(f"📝 Generated narrative length: {len(response.text)} characters")
-        return response.text
-    except Exception as e:
-        logger.error(f"❌ Gemini API call failed: {str(e)}")
-        return f"URGENT: System crisis detected! {question_data['title']} requires immediate attention. {question_data['question_text']}"
-    """Generate story narrative that naturally integrates the technical question"""
-    
-    logger.info(f"🎭 Generating narrative for question: {question_data['id']}")
-    
-    # Determine current scenario context
-    story_tension = "high" if game_state.performance_score < 60 else "medium"
-    team_morale = "concerned" if any(trust < 70 for trust in game_state.team_trust.values()) else "confident"
-    
-    # Build character context based on trust levels
-    character_context = ""
-    for char_id, trust in game_state.team_trust.items():
-        char = CHARACTERS[char_id]
-        if trust < 50:
-            character_context += f"{char['name']} ({char['role']}) seems suspicious lately. "
-        elif trust > 90:
-            character_context += f"{char['name']} ({char['role']}) has your complete trust. "
-    
-    prompt = f"""
-You are a master storyteller creating an immersive tech thriller narrative. Generate a compelling scenario for this coding challenge:
-
-CONTEXT:
-- Player Level: {game_state.player_level}
-- Performance Score: {game_state.performance_score}%
-- Story Tension: {story_tension}
-- Team Morale: {team_morale}
-- Current Streak: {game_state.streak_count}
-- Questions Answered: {game_state.session_questions_answered}
-
-TECHNICAL CHALLENGE:
-- Title: {question_data['title']}
-- Mastery: {question_data['mastery']}
-- Difficulty: {question_data['difficulty_level']}
-- Original Question: {question_data['question_text']}
-
-TEAM DYNAMICS:
-{character_context}
-
-STORY REQUIREMENTS:
-1. Create a urgent, realistic development crisis at NeoTech Corp
-2. The technical question must feel like a natural solution to the crisis
-3. Integrate team members naturally - make their dialogue feel authentic
-4. Adapt the original question terminology to fit the story (change generic examples to story-relevant ones)
-5. Build suspense about potential system infiltration by rogue AIs
-6. Keep narrative concise but engaging (max 200 words)
-7. End with the technical challenge that needs immediate solution
-
-TONE: Professional but urgent, with underlying tension about AI threats
-
-Generate the narrative that leads naturally to the technical question:
-"""
-
-    try:
-        logger.info("🤖 Calling Gemini API for narrative generation...")
-        if not model:
-            logger.error("❌ Gemini model not initialized")
-            return f"URGENT: System crisis detected! {question_data['title']} requires immediate attention. {question_data['question_text']}"
             
         response = model.generate_content(prompt)
         logger.info("✅ Gemini API call successful")

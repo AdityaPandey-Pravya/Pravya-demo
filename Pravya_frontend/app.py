@@ -341,7 +341,7 @@ def get_next_question():
             response = requests.post(
                 f"{BACKEND_URL}/get_next_question",
                 json={"game_state": st.session_state.game_state},
-                timeout=30
+                # timeout=30
             )
         
         if response.status_code == 200:
@@ -380,7 +380,7 @@ def submit_answer(user_answer: str):
                     "user_answer": user_answer,
                     "question_id": st.session_state.current_question['id']
                 },
-                timeout=30
+                # timeout=30
             )
         
         if response.status_code == 200:
@@ -442,7 +442,7 @@ def get_team_hints():
                     "game_state": st.session_state.game_state,
                     "question_id": st.session_state.current_question['id']
                 },
-                timeout=30
+                # timeout=30
             )
         
         if response.status_code == 200:
@@ -470,7 +470,7 @@ def submit_trust_decision(trusted_teammate: str):
                     "question_id": st.session_state.current_question['id'],
                     "trusted_teammate": trusted_teammate
                 },
-                timeout=30
+                # timeout=30
             )
         
         if response.status_code == 200:
@@ -506,7 +506,7 @@ def submit_trust_decision(trusted_teammate: str):
                     "user_answer": user_answer,
                     "question_id": st.session_state.current_question['id']
                 },
-                timeout=30
+                # timeout=30
             )
         
         if response.status_code == 200:
