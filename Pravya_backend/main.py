@@ -374,7 +374,8 @@ STORY REQUIREMENTS:
 5. Build suspense about potential system infiltration by rogue AIs
 6. Keep narrative concise but engaging (max 200 words)
 7. End with the technical challenge that needs immediate solution
-** You should never ask the question in a direct way or at the end of your story narration, the question should be blended with the story narration, So that user have to read the story and find the question within it.
+** You should never ask the question in a direct way or at the end of your story narration, the question should be blended with the story narration, So that user have to read the story and find the question within it.**
+** Question information should be scattered in the entire narration, so that it does not feel like the story narration is useless, and the user simply reads the last paragraph of the narration to solve the question.**
 TONE: Professional but urgent, with underlying tension about AI threats
 
 Generate the narrative that leads naturally to the technical question:

@@ -250,7 +250,7 @@ def display_stats_sidebar():
             
             st.markdown(f"""
             <div style="margin: 0.5rem 0;">
-                <strong style="color: #212529;">{member_name}</strong><br>
+                <strong style="color: #ffffff;">{member_name}</strong><br>
                 <div style="background: #e9ecef; border-radius: 10px; height: 20px; overflow: hidden;">
                     <div style="background: {trust_color}; height: 100%; width: {trust}%; transition: width 0.3s;"></div>
                 </div>
