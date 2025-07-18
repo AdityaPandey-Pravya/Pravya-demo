@@ -228,7 +228,9 @@ def display_stats_sidebar():
         mastery_display = {
             "python": "🐍 Python",
             "react": "⚛️ React",
-            "mathematics": "📐 Mathematics"
+            "mathematics": "📐 Mathematics",
+            "java" : "Java",
+            "devops": "DevOps"
         }.get(game_state['selected_mastery'], game_state['selected_mastery'])
         
         st.markdown(f"""
@@ -284,7 +286,7 @@ def display_mastery_selection():
     </div>
     """, unsafe_allow_html=True)
     
-    col1, col2, col3 = st.columns(3)
+    col1, col2, col3, col4, col5 = st.columns(5)
     
     with col1:
         st.markdown("""
@@ -319,6 +321,28 @@ def display_mastery_selection():
         """, unsafe_allow_html=True)
         if st.button("Choose Mathematics", use_container_width=True, type="primary"):
             st.session_state.game_state['selected_mastery'] = "mathematics"
+            st.session_state.mastery_selected = True
+            st.rerun()
+    with col4:
+        st.markdown("""
+        <div class="stat-card">
+            <h3>Java</h3>
+            <p>Solve complex Java problems, algorithms, challenges.</p>
+        </div>
+        """, unsafe_allow_html=True)
+        if st.button("Choose Java", use_container_width=True, type="primary"):
+            st.session_state.game_state['selected_mastery'] = "java"
+            st.session_state.mastery_selected = True
+            st.rerun()
+    with col5:
+        st.markdown("""
+        <div class="stat-card">
+            <h3>DevOps</h3>
+            <p>Solve complex Devops problems, algorithms, challenges.</p>
+        </div>
+        """, unsafe_allow_html=True)
+        if st.button("Choose DevOps", use_container_width=True, type="primary"):
+            st.session_state.game_state['selected_mastery'] = "devops"
             st.session_state.mastery_selected = True
             st.rerun()
     
