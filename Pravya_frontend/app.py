@@ -13,8 +13,8 @@ st.set_page_config(
 )
 
 # Backend URL (adjust for your deployment)
-BACKEND_URL = "http://localhost:8000"  # Change to your Render URL when deployed
-# BACKEND_URL = "https://pravya-demo.onrender.com"  # Change to your Render URL when deployed
+# BACKEND_URL = "http://localhost:8000"  # Change to your Render URL when deployed
+BACKEND_URL = "https://pravya-demo.onrender.com"  # Change to your Render URL when deployed
 
 # Custom CSS for immersive UI
 st.markdown("""
