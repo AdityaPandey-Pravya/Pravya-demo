@@ -9,7 +9,9 @@ import json
 import random
 import logging
 import re
-
+import time
+from dotenv import load_dotenv
+load_dotenv()
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -302,6 +304,7 @@ Generate the story continuation (max 150 words):
             
         response = model.generate_content(prompt)
         logger.info("✅ Story continuation generated successfully")
+        logger.info(f"🟡Token count for story continuation is :{response.usage_metadata}")
         return response.text.strip()
         
     except Exception as e:
@@ -391,6 +394,7 @@ def generate_immersive_narrative(question_data: Dict[str, Any], game_state: Game
         response = model.generate_content(prompt)
         logger.info("✅ Gemini API call successful")
         logger.info(f"📝 Generated narrative length: {len(response.text)} characters")
+        logger.info(f"🟡Token count is:{response.usage_metadata}")
         return response.text
     except Exception as e:
         logger.error(f"❌ Gemini API call failed: {str(e)}")
@@ -440,6 +444,7 @@ def generate_boss_battle_narrative(question_data: Dict[str, Any], game_state: Ga
             return f"🔥 **FINAL BOSS BATTLE!** {boss_name} emerges from the corrupted systems! This is your ultimate test - defeat the AI corruption with perfect code!"
             
         response = model.generate_content(prompt)
+        logger.info(f"🟡Token count for boss battle narrative is : {response.usage_metadata}")
         return response.text.strip()
     except Exception as e:
         logger.error(f"❌ Boss battle narrative generation failed: {str(e)}")
@@ -494,6 +499,7 @@ The JSON must be valid and parseable. Do not include any text before or after th
             return is_correct, score, feedback
             
         response = model.generate_content(prompt)
+        logger.info(f"🟡Token count for evaluation is : {response.usage_metadata}")
         logger.info("✅ Gemini evaluation API call successful")
         logger.info(f"📋 Raw response: {response.text[:200]}...")  # Log first 200 chars
         
@@ -678,7 +684,11 @@ async def get_next_question(request: QuestionRequest):
         if is_boss_battle:
             narrative = generate_boss_battle_narrative(question_data, game_state)
         else:
+            init_time = time.time()
             narrative = generate_immersive_narrative(question_data, game_state)
+            end_time = time.time()
+            total_duration = end_time - init_time
+            logger.info(f"⏲️Total time taken for API call to generate new scenario is:{total_duration}")
         
         # Adapt question text to story context
         adapted_question = question_data['question_text']
@@ -724,13 +734,17 @@ async def submit_answer(submission: AnswerSubmission):
             if not question_data.data:
                 raise HTTPException(status_code=404, detail=f"Question with ID '{submission.question_id}' not found")
             question = question_data.data[0]
-        
+
+        init_time = time.time()
         # Evaluate answer using LLM
         is_correct, score, feedback = evaluate_user_answer(
             submission.user_answer, 
             question, 
             submission.game_state
         )
+        end_time = time.time()
+        total_duration = end_time - init_time
+        logger.info(f"⏲️Total time taken for API call to evaluate user answer:{total_duration}" )
         
         # Update game state
         updated_game_state = update_game_state_after_answer(
@@ -738,8 +752,10 @@ async def submit_answer(submission: AnswerSubmission):
             is_correct, 
             score
         )
+
         
         # Generate story continuation
+        init_time_scenario = time.time()
         story_continuation = generate_story_continuation(
             is_correct,
             question,
@@ -747,6 +763,10 @@ async def submit_answer(submission: AnswerSubmission):
             submission.user_answer,
             score
         )
+        end_time_scenario = time.time()
+        total_duration_scenario = end_time_scenario - init_time_scenario
+        logger.info(f"⏲️Total time taken to generate new scenario after eval is: {total_duration_scenario}" )
+        logger.info(f"Complete ⏲️Total time taken Eval + new scenario generation is {total_duration+total_duration_scenario}" )
         
         # Check for new achievements
         achievement_unlocked = None

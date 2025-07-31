@@ -1,0 +1,39 @@
+INFO:     Started server process [12130]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:main:🎯 Difficulty progression: question #1, level=1, performance=100.0% -> medium/python
+INFO:main:🔍 Fetching question: difficulty=medium, mastery=python
+INFO:httpx:HTTP Request: GET https://tuqhcaoibwawswbjwyaq.supabase.co/rest/v1/questions?select=%2A&mastery=eq.python&difficulty_level=eq.medium "HTTP/2 200 OK"
+INFO:main:📊 Database query result: 20 questions found
+INFO:main:✅ Selected question: PY_CLASS_BASICS_01
+INFO:main:🎭 Generating narrative for question: PY_CLASS_BASICS_01
+INFO:main:🤖 Calling Gemini API for narrative generation...
+INFO:main:✅ Gemini API call successful
+INFO:main:📝 Generated narrative length: 819 characters
+Total time taken for API call to generate new scenario is: 8.63879680633545
+INFO:     127.0.0.1:53396 - "POST /get_next_question HTTP/1.1" 200 OK
+INFO:httpx:HTTP Request: GET https://tuqhcaoibwawswbjwyaq.supabase.co/rest/v1/questions?select=%2A&id=eq.PY_CLASS_BASICS_01 "HTTP/2 200 OK"
+INFO:main:🔍 Evaluating answer for question: PY_CLASS_BASICS_01
+INFO:main:📝 Answer length: 1852 characters
+INFO:main:🤖 Calling Gemini API for answer evaluation...
+INFO:main:✅ Gemini evaluation API call successful
+INFO:main:📋 Raw response: ```json
+{
+  "is_correct": true,
+  "score": 92,
+  "feedback": "The developer's solution effectively addresses the core challenge by demonstrating a class with an `__init__` method, instance variables, ...
+INFO:main:📊 Extracted JSON: {
+  "is_correct": true,
+  "score": 92,
+  "feedback": "The developer's solution effectively addresses the core challenge by demonstrating a class with an `__init__` method, instance variables, and methods to modify and access those variables. Although the class and method names are re-themed (e.g., `NodeAccount` instead of `BankAccount`, `transfer_in` instead of `deposit`), the underlying functionality and structure precisely match the expected criteria. The code quality is excellent, featuring clear docstrings, type hints, and robust input validation for transfers, which is crucial in an emergency. The solution is highly readable, efficient, and immediately deployable, indicating a strong understanding of Python class principles and adaptability to a critical system context."
+}
+INFO:main:📊 Evaluation result: correct=True, score=92
+Total time taken for API call to evaluate user answer: 8.79563021659851
+INFO:main:🎮 Game state updated: XP=92, Level=1, Performance=98.4%
+INFO:main:🎭 Generating story continuation: correct=True, score=92
+INFO:main:🤖 Calling Gemini API for story continuation...
+INFO:main:✅ Story continuation generated successfully
+Total time taken to generate new scenario after eval is:  5.567982196807861
+Complete total time taken Eval + new scenario generation is  14.363612413406372
+INFO:     127.0.0.1:55414 - "POST /submit_answer HTTP/1.1" 200 OK
+
